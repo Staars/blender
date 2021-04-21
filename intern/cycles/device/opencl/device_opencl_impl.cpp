@@ -2008,7 +2008,7 @@ string OpenCLDevice::kernel_build_options(const string *debug_src)
   }
 
   else if (platform_name == "Apple")
-    build_options += "-D__KERNEL_OPENCL_APPLE__ ";
+    build_options += "-D__CL_NOINLINE__ ";
 
   else if (platform_name == "AMD Accelerated Parallel Processing")
     build_options += "-D__KERNEL_OPENCL_AMD__ ";
