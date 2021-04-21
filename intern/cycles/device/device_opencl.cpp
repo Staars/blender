@@ -128,6 +128,14 @@ void device_opencl_info(vector<DeviceInfo> &devices)
 
     /* Disabled for now due to apparent AMD driver bug. */
     info.has_nanovdb = platform_name != "AMD Accelerated Parallel Processing";
+      
+    if (platform_name == "Apple" && device_name == "Apple M1") {
+      /* Apple silicon does not like NANODVB too. */
+      info.has_nanovdb = false;
+      info.denoisers = DENOISER_NONE;
+      /* This is the GPU and not the CPU, makes it more clear in the GUI. */
+      info.description = string("Apple M1 GPU");
+    }
 
     devices.push_back(info);
     num_devices++;
