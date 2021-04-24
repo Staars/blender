@@ -166,7 +166,7 @@ static void __cpuid(int data[4], int selector)
 
 string system_cpu_brand_string()
 {
-#if !defined(WIN32) && !defined(__x86_64__) && !defined(__i386__)
+#if !defined(WIN32) && !defined(__x86_64__) && !defined(__i386__) && !defined(__APPLE__)
   FILE *cpuinfo = fopen("/proc/cpuinfo", "r");
   if (cpuinfo != nullptr) {
     char cpuinfo_buf[513] = "";
@@ -186,6 +186,11 @@ string system_cpu_brand_string()
       }
     }
   }
+#elif defined(__APPLE__)
+  char modelname[512] = "";
+  size_t bufferlen = 512;
+  if (sysctlbyname("machdep.cpu.brand_string", &modelname, &bufferlen, NULL, 0) == 0)
+    return modelname;
 #else
   char buf[49] = {0};
   int result[4] = {0};
@@ -394,3 +399,4 @@ size_t system_physical_ram()
 }
 
 CCL_NAMESPACE_END
+
