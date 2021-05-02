@@ -41,6 +41,7 @@ thread_mutex Device::device_mutex;
 vector<DeviceInfo> Device::opencl_devices;
 vector<DeviceInfo> Device::cuda_devices;
 vector<DeviceInfo> Device::optix_devices;
+vector<DeviceInfo> Device::metal_devices;
 vector<DeviceInfo> Device::cpu_devices;
 vector<DeviceInfo> Device::network_devices;
 uint Device::devices_initialized_mask = 0;
@@ -408,6 +409,13 @@ Device *Device::create(DeviceInfo &info, Stats &stats, Profiler &profiler, bool 
         device = device_optix_create(info, stats, profiler, background);
       break;
 #endif
+#ifdef WITH_METAL
+    case DEVICE_METAL:
+      VLOG(1) << "STAARS metal shall init";
+      if (device_metal_init())
+        device = device_metal_create(info, stats, profiler, background);
+      break;
+#endif
 #ifdef WITH_NETWORK
     case DEVICE_NETWORK:
       device = device_network_create(info, stats, profiler, "127.0.0.1");
@@ -440,6 +448,8 @@ DeviceType Device::type_from_string(const char *name)
     return DEVICE_OPTIX;
   else if (strcmp(name, "OPENCL") == 0)
     return DEVICE_OPENCL;
+  else if (strcmp(name, "METAL") == 0)
+    return DEVICE_METAL;
   else if (strcmp(name, "NETWORK") == 0)
     return DEVICE_NETWORK;
   else if (strcmp(name, "MULTI") == 0)
@@ -458,6 +468,8 @@ string Device::string_from_type(DeviceType type)
     return "OPTIX";
   else if (type == DEVICE_OPENCL)
     return "OPENCL";
+  else if (type == DEVICE_METAL)
+    return "METAL";
   else if (type == DEVICE_NETWORK)
     return "NETWORK";
   else if (type == DEVICE_MULTI)
@@ -479,6 +491,9 @@ vector<DeviceType> Device::available_types()
 #ifdef WITH_OPENCL
   types.push_back(DEVICE_OPENCL);
 #endif
+#ifdef WITH_METAL
+  types.push_back(DEVICE_METAL);
+#endif
 #ifdef WITH_NETWORK
   types.push_back(DEVICE_NETWORK);
 #endif
@@ -492,7 +507,7 @@ vector<DeviceInfo> Device::available_devices(uint mask)
    * we don't want to do any initialization until the user chooses to. */
   thread_scoped_lock lock(device_mutex);
   vector<DeviceInfo> devices;
-
+  
 #ifdef WITH_OPENCL
   if (mask & DEVICE_MASK_OPENCL) {
     if (!(devices_initialized_mask & DEVICE_MASK_OPENCL)) {
@@ -536,6 +551,21 @@ vector<DeviceInfo> Device::available_devices(uint mask)
     }
   }
 #endif
+  
+#ifdef WITH_METAL
+  if (mask & DEVICE_MASK_METAL) {
+    if (!(devices_initialized_mask & DEVICE_MASK_METAL)) {
+      if (device_metal_init()) {
+        device_metal_info(metal_devices);
+      }
+      devices_initialized_mask |= DEVICE_MASK_METAL;
+    }
+    foreach (DeviceInfo &info, metal_devices) {
+      devices.push_back(info);
+    }
+  }
+#endif
+
 
   if (mask & DEVICE_MASK_CPU) {
     if (!(devices_initialized_mask & DEVICE_MASK_CPU)) {
@@ -585,6 +615,15 @@ string Device::device_capabilities(uint mask)
     if (device_opencl_init()) {
       capabilities += "\nOpenCL device capabilities:\n";
       capabilities += device_opencl_capabilities();
+    }
+  }
+#endif
+
+#ifdef WITH_METAL
+  if (mask & DEVICE_MASK_METAL) {
+    if (device_metal_init()) {
+      capabilities += "\nMetal device capabilities:\n";
+      capabilities += device_metal_capabilities();
     }
   }
 #endif

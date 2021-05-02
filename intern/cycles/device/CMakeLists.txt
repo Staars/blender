@@ -44,6 +44,7 @@ set(SRC
   device_multi.cpp
   device_opencl.cpp
   device_optix.cpp
+  device_metal.cpp
   device_split_kernel.cpp
   device_task.cpp
 )
@@ -59,6 +60,14 @@ set(SRC_OPENCL
   opencl/memory_manager.h
   opencl/memory_manager.cpp
   opencl/opencl_util.cpp
+)
+
+set(SRC_METAL
+  metal/device_metal.h
+  metal/device_metal_impl.cpp
+  metal/memory_manager.h
+  metal/memory_manager.cpp
+  metal/metal_util.mm
 )
 
 if(WITH_CYCLES_NETWORK)
@@ -110,6 +119,12 @@ endif()
 if(WITH_CYCLES_DEVICE_OPTIX)
   add_definitions(-DWITH_OPTIX)
 endif()
+if(WITH_CYCLES_DEVICE_METAL)
+  list(APPEND LIB
+    extern_clew
+  )
+  add_definitions(-DWITH_METAL)
+endif()
 if(WITH_CYCLES_DEVICE_MULTI)
   add_definitions(-DWITH_MULTI)
 endif()
@@ -129,4 +144,4 @@ endif()
 include_directories(${INC})
 include_directories(SYSTEM ${INC_SYS})
 
-cycles_add_library(cycles_device "${LIB}" ${SRC} ${SRC_CUDA} ${SRC_OPENCL} ${SRC_HEADERS})
+cycles_add_library(cycles_device "${LIB}" ${SRC} ${SRC_CUDA} ${SRC_OPENCL} ${SRC_METAL} ${SRC_HEADERS})

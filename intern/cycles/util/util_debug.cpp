@@ -86,6 +86,17 @@ void DebugFlags::OptiX::reset()
   curves_api = false;
 }
 
+DebugFlags::Metal::Metal()
+{
+  reset();
+}
+
+void DebugFlags::Metal::reset()
+{
+  debug =false;
+}
+
+
 DebugFlags::OpenCL::OpenCL() : device_type(DebugFlags::OpenCL::DEVICE_ALL), debug(false)
 {
   reset();
@@ -131,6 +142,7 @@ void DebugFlags::reset()
   cpu.reset();
   cuda.reset();
   optix.reset();
+  metal.reset();
   opencl.reset();
 }
 
@@ -150,6 +162,9 @@ std::ostream &operator<<(std::ostream &os, DebugFlagsConstRef debug_flags)
 
   os << "OptiX flags:\n"
      << "  CUDA streams : " << debug_flags.optix.cuda_streams << "\n";
+  
+  os << "Metal flags:\n"
+     << "  Metal debug : " << debug_flags.metal.debug << "\n";
 
   const char *opencl_device_type;
   switch (debug_flags.opencl.device_type) {

@@ -29,6 +29,7 @@ CCL_NAMESPACE_BEGIN
 
 Device *device_opencl_create(DeviceInfo &info, Stats &stats, Profiler &profiler, bool background)
 {
+  VLOG(1) << "STAARS device_opencl_create.";
   return opencl_create_split_device(info, stats, profiler, background);
 }
 
