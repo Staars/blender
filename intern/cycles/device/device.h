@@ -53,6 +53,7 @@ enum DeviceType {
   DEVICE_CUDA,
   DEVICE_MULTI,
   DEVICE_OPTIX,
+  DEVICE_METAL,
   DEVICE_DUMMY,
 };
 
@@ -61,6 +62,7 @@ enum DeviceTypeMask {
   DEVICE_MASK_OPENCL = (1 << DEVICE_OPENCL),
   DEVICE_MASK_CUDA = (1 << DEVICE_CUDA),
   DEVICE_MASK_OPTIX = (1 << DEVICE_OPTIX),
+  DEVICE_MASK_METAL = (1 << DEVICE_METAL),
   DEVICE_MASK_ALL = ~0
 };
 
@@ -448,6 +450,7 @@ class Device {
   static vector<DeviceInfo> cuda_devices;
   static vector<DeviceInfo> optix_devices;
   static vector<DeviceInfo> opencl_devices;
+  static vector<DeviceInfo> metal_devices;
   static vector<DeviceInfo> cpu_devices;
   static uint devices_initialized_mask;
 };
