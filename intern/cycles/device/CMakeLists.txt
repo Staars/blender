@@ -68,6 +68,19 @@ set(SRC_CUDA
   cuda/util.h
 )
 
+set(SRC_METAL
+  metal/device.mm
+  metal/device.h
+  metal/device_impl.mm
+  metal/device_impl.h
+  metal/kernel.mm
+  metal/kernel.h
+  metal/queue.mm
+  metal/queue.h
+  metal/util.mm
+  metal/util.h
+)
+
 set(SRC_DUMMY
   dummy/device.cpp
   dummy/device.h
@@ -137,6 +150,9 @@ endif()
 if(WITH_CYCLES_DEVICE_OPTIX)
   add_definitions(-DWITH_OPTIX)
 endif()
+if(WITH_CYCLES_DEVICE_METAL)
+  add_definitions(-DWITH_METAL)
+endif()
 if(WITH_CYCLES_DEVICE_MULTI)
   add_definitions(-DWITH_MULTI)
 endif()
@@ -158,6 +174,7 @@ cycles_add_library(cycles_device "${LIB}"
   ${SRC_MULTI}
   ${SRC_OPENCL}
   ${SRC_OPTIX}
+  ${SRC_METAL}
   ${SRC_HEADERS}
 )
 
@@ -167,4 +184,5 @@ source_group("dummy" FILES ${SRC_DUMMY})
 source_group("multi" FILES ${SRC_MULTI})
 source_group("opencl" FILES ${SRC_OPENCL})
 source_group("optix" FILES ${SRC_OPTIX})
+source_group("metal" FILES ${SRC_METAL})
 source_group("common" FILES ${SRC} ${SRC_HEADERS})

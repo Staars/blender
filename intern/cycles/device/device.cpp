@@ -28,6 +28,7 @@
 #include "device/multi/device.h"
 #include "device/opencl/device.h"
 #include "device/optix/device.h"
+#include "device/metal/device.h"
 
 #include "util/util_foreach.h"
 #include "util/util_half.h"
@@ -48,6 +49,7 @@ thread_mutex Device::device_mutex;
 vector<DeviceInfo> Device::opencl_devices;
 vector<DeviceInfo> Device::cuda_devices;
 vector<DeviceInfo> Device::optix_devices;
+vector<DeviceInfo> Device::metal_devices;
 vector<DeviceInfo> Device::cpu_devices;
 uint Device::devices_initialized_mask = 0;
 
@@ -112,6 +114,8 @@ Device *Device::create(const DeviceInfo &info, Stats &stats, Profiler &profiler)
 #endif
 
   Device *device = NULL;
+  
+  VLOG(1) << "info.type" << info.type;
 
   switch (info.type) {
     case DEVICE_CPU:
@@ -127,6 +131,13 @@ Device *Device::create(const DeviceInfo &info, Stats &stats, Profiler &profiler)
     case DEVICE_OPTIX:
       if (device_optix_init())
         device = device_optix_create(info, stats, profiler);
+      break;
+#endif
+#ifdef WITH_METAL
+    case DEVICE_METAL:
+      if (device_metal_init())
+        VLOG(1) << "device_metal_create";
+        device = device_metal_create(info, stats, profiler);
       break;
 #endif
 #ifdef WITH_OPENCL
@@ -156,6 +167,8 @@ DeviceType Device::type_from_string(const char *name)
     return DEVICE_OPTIX;
   else if (strcmp(name, "OPENCL") == 0)
     return DEVICE_OPENCL;
+  else if (strcmp(name, "METAL") == 0)
+    return DEVICE_METAL;
   else if (strcmp(name, "MULTI") == 0)
     return DEVICE_MULTI;
 
@@ -172,6 +185,8 @@ string Device::string_from_type(DeviceType type)
     return "OPTIX";
   else if (type == DEVICE_OPENCL)
     return "OPENCL";
+  else if (type == DEVICE_METAL)
+    return "METAL";
   else if (type == DEVICE_MULTI)
     return "MULTI";
 
@@ -191,6 +206,10 @@ vector<DeviceType> Device::available_types()
 #ifdef WITH_OPENCL
   types.push_back(DEVICE_OPENCL);
 #endif
+#ifdef WITH_METAL
+  types.push_back(DEVICE_METAL);
+#endif
+
   return types;
 }
 
@@ -211,6 +230,19 @@ vector<DeviceInfo> Device::available_devices(uint mask)
       devices_initialized_mask |= DEVICE_MASK_OPENCL;
     }
     foreach (DeviceInfo &info, opencl_devices) {
+      devices.push_back(info);
+    }
+  }
+#endif
+#ifdef WITH_METAL
+  if (mask & DEVICE_MASK_METAL) {
+    if (!(devices_initialized_mask & DEVICE_MASK_METAL)) {
+      if (device_metal_init()) {
+        device_metal_info(metal_devices);
+      }
+      devices_initialized_mask |= DEVICE_MASK_METAL;
+    }
+    foreach (DeviceInfo &info, metal_devices) {
       devices.push_back(info);
     }
   }
@@ -285,6 +317,16 @@ string Device::device_capabilities(uint mask)
     }
   }
 #endif
+  
+#ifdef WITH_METAL
+  if (mask & DEVICE_MASK_METAL) {
+    if (device_metal_init()) {
+      capabilities += "\nMetal device capabilities:\n";
+      capabilities += device_metal_capabilities();
+    }
+  }
+#endif
+
 
 #ifdef WITH_CUDA
   if (mask & DEVICE_MASK_CUDA) {
@@ -383,6 +425,7 @@ void Device::free_memory()
   cuda_devices.free_memory();
   optix_devices.free_memory();
   opencl_devices.free_memory();
+  metal_devices.free_memory();
   cpu_devices.free_memory();
 }
 
