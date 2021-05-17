@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 
-/* CUDA kernel entry points */
+/* METAL kernel entry points */
 
-#ifdef __CUDA_ARCH__
+#ifdef __APPLE__
 
-#  include "kernel/device/cuda/compat.h"
-#  include "kernel/device/cuda/config.h"
-#  include "kernel/device/cuda/globals.h"
-#  include "kernel/device/cuda/image.h"
-#  include "kernel/device/cuda/parallel_active_index.h"
-#  include "kernel/device/cuda/parallel_prefix_sum.h"
-#  include "kernel/device/cuda/parallel_sorted_index.h"
+#  include "kernel/device/metal/compat.metal"
+//#  include "kernel/device/metal/config.h"
+#  include "util/util_texture.h"
+#  include "kernel/device/metal/image.h"
+#  include "kernel/device/metal/parallel_active_index.h"
+#  include "kernel/device/metal/parallel_prefix_sum.h"
+#  include "kernel/device/metal/parallel_sorted_index.h"
 
 #  include "kernel/integrator/integrator_state.h"
 #  include "kernel/integrator/integrator_state_flow.h"
@@ -46,13 +46,18 @@
 #  include "kernel/kernel_film.h"
 #  include "kernel/kernel_work_stealing.h"
 
+
+#  include "kernel/device/metal/globals.metal"
+
 /* TODO: move cryptomatte post sorting to its own kernel. */
+
 #  if 0
 /* kernels */
-extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS, CUDA_KERNEL_MAX_REGISTERS)
-    kernel_cuda_path_trace(KernelWorkTile *tile, uint work_size)
+kernel
+    kernel_metal_path_trace(KernelWorkTile *tile, uint work_size, uint index_tpig [[thread_position_in_grid]])
 {
-  int work_index = ccl_global_id(0);
+//  int work_index = ccl_global_id(0);
+  int work_index = index_tpig.x;
   bool thread_is_active = work_index < work_size;
   uint x, y, sample;
   KernelGlobals kg;
@@ -75,15 +80,16 @@ extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS, CUD
  * Integrator.
  */
 
-extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
-                                              CUDA_KERNEL_MAX_REGISTERS)
-    kernel_cuda_integrator_init_from_camera(const int *path_index_array,
+kernel
+    kernel_metal_integrator_init_from_camera(const int *path_index_array,
                                             KernelWorkTile *tile,
                                             float *render_buffer,
                                             const int tile_work_size,
-                                            const int path_index_offset)
+                                            const int path_index_offset,
+                                            uint index_tpig [[thread_position_in_grid]]))
 {
-  const int global_index = ccl_global_id(0);
+//  const int global_index = ccl_global_id(0);
+  const int global_index = index_tpig.x;
   const int work_index = global_index;
   bool thread_is_active = work_index < tile_work_size;
   if (thread_is_active) {
@@ -96,11 +102,12 @@ extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
   }
 }
 
-extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
-                                              CUDA_KERNEL_MAX_REGISTERS)
-    kernel_cuda_integrator_intersect_closest(const int *path_index_array, const int work_size)
+kernel
+    kernel_metal_integrator_intersect_closest(const int *path_index_array, const int work_size,
+                                              uint index_tpig [[thread_position_in_grid]]))
 {
-  const int global_index = ccl_global_id(0);
+//  const int global_index = ccl_global_id(0);
+  const int global_index = index_tpig.x;
 
   if (global_index < work_size) {
     const int path_index = (path_index_array) ? path_index_array[global_index] : global_index;
@@ -108,11 +115,12 @@ extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
   }
 }
 
-extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
-                                              CUDA_KERNEL_MAX_REGISTERS)
-    kernel_cuda_integrator_intersect_shadow(const int *path_index_array, const int work_size)
+kernel
+    kernel_metal_integrator_intersect_shadow(const int *path_index_array, const int work_size,
+                                             uint index_tpig [[thread_position_in_grid]]))
 {
-  const int global_index = ccl_global_id(0);
+//  const int global_index = ccl_global_id(0);
+  const int global_index = index_tpig.x;
 
   if (global_index < work_size) {
     const int path_index = (path_index_array) ? path_index_array[global_index] : global_index;
@@ -120,11 +128,12 @@ extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
   }
 }
 
-extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
-                                              CUDA_KERNEL_MAX_REGISTERS)
-    kernel_cuda_integrator_intersect_subsurface(const int *path_index_array, const int work_size)
+kernel
+    kernel_metal_integrator_intersect_subsurface(const int *path_index_array, const int work_size,
+                                                 uint index_tpig [[thread_position_in_grid]]))
 {
-  const int global_index = ccl_global_id(0);
+//  const int global_index = ccl_global_id(0);
+  const int global_index = index_tpig.x;
 
   if (global_index < work_size) {
     const int path_index = (path_index_array) ? path_index_array[global_index] : global_index;
@@ -132,13 +141,14 @@ extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
   }
 }
 
-extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
-                                              CUDA_KERNEL_MAX_REGISTERS)
-    kernel_cuda_integrator_shade_background(const int *path_index_array,
+kernel
+    kernel_metal_integrator_shade_background(const int *path_index_array,
                                             float *render_buffer,
-                                            const int work_size)
+                                            const int work_size,
+                                             uint index_tpig [[thread_position_in_grid]]))
 {
-  const int global_index = ccl_global_id(0);
+//  const int global_index = ccl_global_id(0);
+  const int global_index = index_tpig.x;
 
   if (global_index < work_size) {
     const int path_index = (path_index_array) ? path_index_array[global_index] : global_index;
@@ -146,13 +156,14 @@ extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
   }
 }
 
-extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
-                                              CUDA_KERNEL_MAX_REGISTERS)
-    kernel_cuda_integrator_shade_light(const int *path_index_array,
+kernel
+    kernel_metal_integrator_shade_light(const int *path_index_array,
                                        float *render_buffer,
-                                       const int work_size)
+                                       const int work_size,
+                                        uint index_tpig [[thread_position_in_grid]]))
 {
-  const int global_index = ccl_global_id(0);
+//  const int global_index = ccl_global_id(0);
+  const int global_index = index_tpig.x;
 
   if (global_index < work_size) {
     const int path_index = (path_index_array) ? path_index_array[global_index] : global_index;
@@ -160,13 +171,14 @@ extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
   }
 }
 
-extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
-                                              CUDA_KERNEL_MAX_REGISTERS)
-    kernel_cuda_integrator_shade_shadow(const int *path_index_array,
+kernel
+    kernel_metal_integrator_shade_shadow(const int *path_index_array,
                                         float *render_buffer,
-                                        const int work_size)
+                                        const int work_size,
+                                         uint index_tpig [[thread_position_in_grid]]))
 {
-  const int global_index = ccl_global_id(0);
+//  const int global_index = ccl_global_id(0);
+  const int global_index = index_tpig.x;
 
   if (global_index < work_size) {
     const int path_index = (path_index_array) ? path_index_array[global_index] : global_index;
@@ -174,13 +186,14 @@ extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
   }
 }
 
-extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
-                                              CUDA_KERNEL_MAX_REGISTERS)
-    kernel_cuda_integrator_shade_surface(const int *path_index_array,
+kernel
+    kernel_metal_integrator_shade_surface(const int *path_index_array,
                                          float *render_buffer,
-                                         const int work_size)
+                                         const int work_size,
+                                         uint index_tpig [[thread_position_in_grid]]))
 {
-  const int global_index = ccl_global_id(0);
+//  const int global_index = ccl_global_id(0);
+  const int global_index = index_tpig.x;
 
   if (global_index < work_size) {
     const int path_index = (path_index_array) ? path_index_array[global_index] : global_index;
@@ -188,13 +201,13 @@ extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
   }
 }
 
-extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
-                                              CUDA_KERNEL_MAX_REGISTERS)
-    kernel_cuda_integrator_shade_volume(const int *path_index_array,
+kernel    kernel_metal_integrator_shade_volume(const int *path_index_array,
                                         float *render_buffer,
-                                        const int work_size)
+                                        const int work_size,
+                                        uint index_tpig [[thread_position_in_grid]]))
 {
-  const int global_index = ccl_global_id(0);
+//  const int global_index = ccl_global_id(0);
+  const int global_index = index_tpig.x;
 
   if (global_index < work_size) {
     const int path_index = (path_index_array) ? path_index_array[global_index] : global_index;
@@ -202,13 +215,13 @@ extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
   }
 }
 
-extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
-                                              CUDA_KERNEL_MAX_REGISTERS)
-    kernel_cuda_integrator_megakernel(const int *path_index_array,
+kernel    kernel_metal_integrator_megakernel(const int *path_index_array,
                                       float *render_buffer,
-                                      const int work_size)
+                                      const int work_size,
+                                      uint index_tpig [[thread_position_in_grid]]))
 {
-  const int global_index = ccl_global_id(0);
+//  const int global_index = ccl_global_id(0);
+  const int global_index = index_tpig.x;
 
   if (global_index < work_size) {
     const int path_index = (path_index_array) ? path_index_array[global_index] : global_index;
@@ -216,50 +229,50 @@ extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
   }
 }
 
-extern "C" __global__ void __launch_bounds__(CUDA_PARALLEL_ACTIVE_INDEX_DEFAULT_BLOCK_SIZE)
-    kernel_cuda_integrator_queued_paths_array(int num_states,
+kernel
+    kernel_metal_integrator_queued_paths_array(int num_states,
                                               int *indices,
                                               int *num_indices,
                                               int kernel)
 {
-  cuda_parallel_active_index_array<CUDA_PARALLEL_ACTIVE_INDEX_DEFAULT_BLOCK_SIZE>(
+  metal_parallel_active_index_array<METAL_PARALLEL_ACTIVE_INDEX_DEFAULT_BLOCK_SIZE>(
       num_states, indices, num_indices, [kernel](const int path_index) {
         return (INTEGRATOR_STATE(path, queued_kernel) == kernel);
       });
 }
 
-extern "C" __global__ void __launch_bounds__(CUDA_PARALLEL_ACTIVE_INDEX_DEFAULT_BLOCK_SIZE)
-    kernel_cuda_integrator_queued_shadow_paths_array(int num_states,
+kernel
+    kernel_metal_integrator_queued_shadow_paths_array(int num_states,
                                                      int *indices,
                                                      int *num_indices,
                                                      int kernel)
 {
-  cuda_parallel_active_index_array<CUDA_PARALLEL_ACTIVE_INDEX_DEFAULT_BLOCK_SIZE>(
+  metal_parallel_active_index_array<METAL_PARALLEL_ACTIVE_INDEX_DEFAULT_BLOCK_SIZE>(
       num_states, indices, num_indices, [kernel](const int path_index) {
         return (INTEGRATOR_STATE(shadow_path, queued_kernel) == kernel);
       });
 }
 
-extern "C" __global__ void __launch_bounds__(CUDA_PARALLEL_ACTIVE_INDEX_DEFAULT_BLOCK_SIZE)
-    kernel_cuda_integrator_active_paths_array(int num_states,
+kernel
+    kernel_metal_integrator_active_paths_array(int num_states,
                                               int *indices,
                                               int *num_indices,
                                               int unused_kernel)
 {
-  cuda_parallel_active_index_array<CUDA_PARALLEL_ACTIVE_INDEX_DEFAULT_BLOCK_SIZE>(
+  metal_parallel_active_index_array<METAL_PARALLEL_ACTIVE_INDEX_DEFAULT_BLOCK_SIZE>(
       num_states, indices, num_indices, [](const int path_index) {
         return (INTEGRATOR_STATE(path, queued_kernel) != 0) ||
                (INTEGRATOR_STATE(shadow_path, queued_kernel) != 0);
       });
 }
 
-extern "C" __global__ void __launch_bounds__(CUDA_PARALLEL_ACTIVE_INDEX_DEFAULT_BLOCK_SIZE)
-    kernel_cuda_integrator_terminated_paths_array(int num_states,
+kernel
+    kernel_metal_integrator_terminated_paths_array(int num_states,
                                                   int *indices,
                                                   int *num_indices,
                                                   int unused_kernel)
 {
-  cuda_parallel_active_index_array<CUDA_PARALLEL_ACTIVE_INDEX_DEFAULT_BLOCK_SIZE>(
+  metal_parallel_active_index_array<METAL_PARALLEL_ACTIVE_INDEX_DEFAULT_BLOCK_SIZE>(
       num_states, indices, num_indices, [](const int path_index) {
         if (kernel_data.integrator.has_shadow_catcher) {
           /* NOTE: The kernel invocation limits number of states checked, ensuring that only
@@ -276,31 +289,30 @@ extern "C" __global__ void __launch_bounds__(CUDA_PARALLEL_ACTIVE_INDEX_DEFAULT_
       });
 }
 
-extern "C" __global__ void __launch_bounds__(CUDA_PARALLEL_SORTED_INDEX_DEFAULT_BLOCK_SIZE)
-    kernel_cuda_integrator_sorted_paths_array(
+kernel
+    kernel_metal_integrator_sorted_paths_array(
         int num_states, int *indices, int *num_indices, int *key_prefix_sum, int kernel)
 {
-  cuda_parallel_sorted_index_array<CUDA_PARALLEL_SORTED_INDEX_DEFAULT_BLOCK_SIZE>(
+  metal_parallel_sorted_index_array<METAL_PARALLEL_SORTED_INDEX_DEFAULT_BLOCK_SIZE>(
       num_states, indices, num_indices, key_prefix_sum, [kernel](const int path_index) {
         return (INTEGRATOR_STATE(path, queued_kernel) == kernel) ?
                    INTEGRATOR_STATE(path, shader_sort_key) :
-                   CUDA_PARALLEL_SORTED_INDEX_INACTIVE_KEY;
+                   METAL_PARALLEL_SORTED_INDEX_INACTIVE_KEY;
       });
 }
 
-extern "C" __global__ void __launch_bounds__(CUDA_PARALLEL_PREFIX_SUM_DEFAULT_BLOCK_SIZE)
-    kernel_cuda_prefix_sum(int *values, int num_values)
+kernel
+    kernel_metal_prefix_sum(int *values, int num_values)
 {
-  cuda_parallel_prefix_sum<CUDA_PARALLEL_PREFIX_SUM_DEFAULT_BLOCK_SIZE>(values, num_values);
+  metal_parallel_prefix_sum<METAL_PARALLEL_PREFIX_SUM_DEFAULT_BLOCK_SIZE>(values, num_values);
 }
 
 /* --------------------------------------------------------------------
  * Adaptive sampling.
  */
 
-extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
-                                              CUDA_KERNEL_MAX_REGISTERS)
-    kernel_cuda_adaptive_sampling_convergence_check(float *render_buffer,
+kernel
+    kernel_metal_adaptive_sampling_convergence_check(float *render_buffer,
                                                     int sx,
                                                     int sy,
                                                     int sw,
@@ -309,9 +321,11 @@ extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
                                                     bool reset,
                                                     int offset,
                                                     int stride,
-                                                    int *all_pixels_converged)
+                                                    int *all_pixels_converged,
+                                                    uint index_tpig [[thread_position_in_grid]]))
 {
-  const int work_index = ccl_global_id(0);
+//  const int work_index = ccl_global_id(0);
+  const int work_index = index_tpig.x;
   const int y = work_index / sw;
   const int x = work_index - y * sw;
 
@@ -330,24 +344,25 @@ extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
   }
 }
 
-extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
-                                              CUDA_KERNEL_MAX_REGISTERS)
-    kernel_cuda_adaptive_sampling_filter_x(
-        float *render_buffer, int sx, int sy, int sw, int sh, int offset, int stride)
+kernel
+    kernel_metal_adaptive_sampling_filter_x(
+        float *render_buffer, int sx, int sy, int sw, int sh, int offset, int stride, uint index_tpig [[thread_position_in_grid]]))
 {
-  const int y = ccl_global_id(0);
+//  const int y = ccl_global_id(0);
+  const int y = index_tpig.x;
 
   if (y < sh) {
     kernel_adaptive_sampling_filter_x(NULL, render_buffer, sy + y, sx, sw, offset, stride);
   }
 }
 
-extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
-                                              CUDA_KERNEL_MAX_REGISTERS)
-    kernel_cuda_adaptive_sampling_filter_y(
-        float *render_buffer, int sx, int sy, int sw, int sh, int offset, int stride)
+kernel
+    kernel_metal_adaptive_sampling_filter_y(
+        float *render_buffer, int sx, int sy, int sw, int sh, int offset, int stride,
+                                            uint index_tpig [[thread_position_in_grid]]))
 {
-  const int x = ccl_global_id(0);
+//  const int x = ccl_global_id(0);
+  const int x = index_tpig.x;
 
   if (x < sw) {
     kernel_adaptive_sampling_filter_y(NULL, render_buffer, sx + x, sy, sh, offset, stride);
@@ -360,9 +375,8 @@ extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
 
 /* Convert to Display Buffer */
 
-extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
-                                              CUDA_KERNEL_MAX_REGISTERS)
-    kernel_cuda_convert_to_half_float(uchar4 *rgba,
+kernel
+    kernel_metal_convert_to_half_float(uchar4 *rgba,
                                       float *render_buffer,
                                       float sample_scale,
                                       int sx,
@@ -370,9 +384,11 @@ extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
                                       int sw,
                                       int sh,
                                       int offset,
-                                      int stride)
+                                      int stride,
+                                       uint index_tpig [[thread_position_in_grid]]))
 {
-  const int work_index = ccl_global_id(0);
+//  const int work_index = ccl_global_id(0);
+  const int work_index = index_tpig.x;
   const int y = work_index / sw;
   const int x = work_index - y * sw;
 
@@ -388,9 +404,8 @@ extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
 
 /* Displacement */
 
-extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
-                                              CUDA_KERNEL_MAX_REGISTERS)
-    kernel_cuda_shader_eval_displace(KernelShaderEvalInput *input,
+kernel
+    kernel_metal_shader_eval_displace(KernelShaderEvalInput *input,
                                      float4 *output,
                                      const int offset,
                                      const int work_size)
@@ -403,9 +418,8 @@ extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
 
 /* Background Shader Evaluation */
 
-extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
-                                              CUDA_KERNEL_MAX_REGISTERS)
-    kernel_cuda_shader_eval_background(KernelShaderEvalInput *input,
+kernel
+    kernel_metal_shader_eval_background(KernelShaderEvalInput *input,
                                        float4 *output,
                                        const int offset,
                                        const int work_size)
@@ -421,13 +435,14 @@ extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
  */
 
 #  ifdef __BAKING__
-extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
-                                              CUDA_KERNEL_MAX_REGISTERS)
-    kernel_cuda_bake(KernelWorkTile *tile, uint work_size)
+kernel
+    kernel_metal_bake(KernelWorkTile *tile, uint work_size,
+                      uint index_tpig [[thread_position_in_grid]]))
 {
   /* TODO */
 #    if 0
-  int work_index = ccl_global_id(0);
+//  int work_index = ccl_global_id(0);
+  int work_index = index_tpig.x;
 
   if (work_index < work_size) {
     uint x, y, sample;
@@ -444,9 +459,8 @@ extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
  * Denoising.
  */
 
-extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
-                                              CUDA_KERNEL_MAX_REGISTERS)
-    kernel_cuda_filter_convert_to_rgb(float *rgb,
+kernel
+    kernel_metal_filter_convert_to_rgb(float *rgb,
                                       const float *render_buffer,
                                       int sx,
                                       int sy,
@@ -458,9 +472,11 @@ extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
                                       int3 pass_offset,
                                       int num_inputs,
                                       int num_samples,
-                                      int pass_sample_count)
+                                      int pass_sample_count,
+                                      uint index_tpig [[thread_position_in_grid]]))
 {
-  const int work_index = ccl_global_id(0);
+//  const int work_index = ccl_global_id(0);
+  const int work_index = index_tpig.x;
   const int y = work_index / sw;
   const int x = work_index - y * sw;
 
@@ -504,9 +520,8 @@ extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
   }
 }
 
-extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
-                                              CUDA_KERNEL_MAX_REGISTERS)
-    kernel_cuda_filter_convert_from_rgb(const float *rgb,
+kernel
+    kernel_metal_filter_convert_from_rgb(const float *rgb,
                                         float *render_buffer,
                                         int sx,
                                         int sy,
@@ -516,9 +531,11 @@ extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
                                         int stride,
                                         int pass_stride,
                                         int num_samples,
-                                        int pass_sample_count)
+                                        int pass_sample_count,
+                                        uint index_tpig [[thread_position_in_grid]]))
 {
-  const int work_index = ccl_global_id(0);
+//  const int work_index = ccl_global_id(0);
+  const int work_index = index_tpig.x;
   const int y = work_index / sw;
   const int x = work_index - y * sw;
 

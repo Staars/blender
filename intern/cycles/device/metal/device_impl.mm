@@ -90,20 +90,19 @@ METALDevice::METALDevice(const DeviceInfo &info, Stats &stats, Profiler &profile
   
   VLOG(1) << "STAARS: construct Metal Device";
 
-  /* Initialize METAL. */
-//  CUresult result = cuInit(0);
-//  if (result != METAL_SUCCESS) {
-//    set_error(string_printf("Failed to initialize METAL runtime (%s)", cuewErrorString(result)));
-//    return;
-//  }
-
-  /* Setup device and context. */
-//  result = cuDeviceGet(&cuDevice, cuDevId);
-//  if (result != METAL_SUCCESS) {
-//    set_error(string_printf("Failed to get METAL device handle from ordinal (%s)",
-//                            cuewErrorString(result)));
-//    return;
-//  }
+  for (id<MTLDevice> device in MTLCopyAllDevices()) {
+//    if(info.id == string(device.registryID)) {
+      
+    if(true) {
+      VLOG(1) << "STAARS: ID" << info.id;
+      mtlDevice = device;
+      mtlQueue = mtlDevice.newCommandQueue;
+      mtlCommandBuffer  = mtlQueue.commandBuffer;
+      mtlLibrary = mtlDevice.newDefaultLibrary;
+    }
+  }
+  //TODO error check ...
+  
 
   /* CU_CTX_MAP_HOST for mapping host memory when out of device memory.
    * CU_CTX_LMEM_RESIZE_TO_MAX for reserving local memory ahead of render,
@@ -164,9 +163,6 @@ bool METALDevice::use_adaptive_compilation()
 string METALDevice::compile_kernel_get_common_cflags(
     const DeviceRequestedFeatures &requested_features)
 {
-  const int machine = system_cpu_bits();
-  const string source_path = path_get("source");
-  const string include_path = source_path;
   string cflags = "";
 #  ifdef WITH_CYCLES_DEBUG
   cflags += " -D__KERNEL_DEBUG__";

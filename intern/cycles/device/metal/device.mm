@@ -34,12 +34,9 @@ bool device_metal_init()
 #if !defined(WITH_METAL)
   return false;
 #else
-
   bool initialized = false;
-  
-  NSArray<id<MTLDevice>> *devices = MTLCopyAllDevices();
-  for (id<MTLDevice> device in devices) {
-      if (device.supportsRaytracing && !device.isLowPower) {
+  for (id<MTLDevice> device in MTLCopyAllDevices()) {
+      if (device.supportsRaytracing) {
         initialized = true;
         VLOG(1) << "Metal device with ray tracing support found: " << device.name.UTF8String;
         break;
@@ -54,8 +51,6 @@ bool device_metal_init()
 
 Device *device_metal_create(const DeviceInfo &info, Stats &stats, Profiler &profiler)
 {
-  VLOG(1) << "device_metal_create\n";
-
 #ifdef WITH_METAL
   return new METALDevice(info, stats, profiler);
 #else
@@ -69,28 +64,18 @@ Device *device_metal_create(const DeviceInfo &info, Stats &stats, Profiler &prof
 #endif
 }
 
-//#ifdef WITH_METAL
-//static void device_metal_safe_init()
-//{
-//  // probably not necessary
-//}
-//#endif /* WITH_METAL */
-
 void device_metal_info(vector<DeviceInfo> &devices)
 {
-  VLOG(1) << "device_metal_info\n";
-  
 #ifdef WITH_METAL
   vector<DeviceInfo> display_devices;
-  NSArray<id<MTLDevice>> *mtlDevices = MTLCopyAllDevices();
-  for (id<MTLDevice> device in mtlDevices) {
+//  NSArray<id<MTLDevice>> *mtlDevices = MTLCopyAllDevices();
+  for (id<MTLDevice> device in MTLCopyAllDevices()) {
       if (device.supportsRaytracing && !device.isLowPower) {
-        char name[256];
         DeviceInfo info;
         info.type = DEVICE_METAL;
         info.description = device.name.UTF8String;
         info.num = 0;
-        info.id = 666;
+        info.id = device.registryID;
         info.has_peer_memory = false;
         info.has_half_images = false;
         info.has_nanovdb = false;

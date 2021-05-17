@@ -305,6 +305,8 @@ set(WITH_CYCLES_DEVICE_MULTI TRUE)
 # TODO: force disabled for now since it does not build
 set(WITH_CYCLES_DEVICE_OPENCL OFF)
 
+set(WITH_CYCLES_DEVICE_METAL ON)
+
 # Logging capabilities using GLog library.
 if(WITH_CYCLES_LOGGING)
   add_definitions(-DWITH_CYCLES_LOGGING)
