@@ -35,6 +35,10 @@ set(SRC_DEVICE_CUDA
   device/cuda/kernel.cu
 )
 
+set(SRC_DEVICE_METAL
+  device/metal/kernel.metal
+)
+
 set(SRC_DEVICE_OPENCL
   device/opencl/kernel_adaptive_stopping.cl
   device/opencl/kernel_adaptive_filter_x.cl
@@ -115,6 +119,17 @@ set(SRC_DEVICE_CUDA_HEADERS
   device/cuda/parallel_prefix_sum.h
   device/cuda/parallel_reduce.h
   device/cuda/parallel_sorted_index.h
+)
+
+set(SRC_DEVICE_METAL_HEADERS
+  device/metal/compat.h
+  device/metal/config.h
+  device/metal/globals.h
+  device/metal/image.h
+  device/metal/parallel_active_index.h
+  device/metal/parallel_prefix_sum.h
+  device/metal/parallel_reduce.h
+  device/metal/parallel_sorted_index.h
 )
 
 set(SRC_DEVICE_OPTIX_HEADERS
@@ -612,11 +627,13 @@ cycles_add_library(cycles_kernel "${LIB}"
   ${SRC_DEVICE_CUDA}
   ${SRC_DEVICE_OPTIX}
   ${SRC_DEVICE_OPENCL}
+  ${SRC_DEVICE_METAL}
   ${SRC_HEADERS}
   ${SRC_DEVICE_CPU_HEADERS}
   ${SRC_DEVICE_CUDA_HEADERS}
   ${SRC_DEVICE_OPTIX_HEADERS}
   ${SRC_DEVICE_OPENCL_HEADERS}
+  ${SRC_DEVICE_METAL_HEADERS}
   ${SRC_BVH_HEADERS}
   ${SRC_CLOSURE_HEADERS}
   ${SRC_SVM_HEADERS}
@@ -633,6 +650,7 @@ source_group("device\\cpu" FILES ${SRC_DEVICE_CPU} ${SRC_DEVICE_CPU_HEADERS})
 source_group("device\\cuda" FILES ${SRC_DEVICE_CUDA} ${SRC_DEVICE_CUDA_HEADERS})
 source_group("device\\opencl" FILES ${SRC_DEVICE_OPENCL} ${SRC_DEVICE_OPENCL_HEADERS})
 source_group("device\\optix" FILES ${SRC_DEVICE_OPTIX} ${SRC_DEVICE_OPTIX_HEADERS})
+source_group("device\\metal" FILES ${SRC_DEVICE_METAL} ${SRC_DEVICE_METAL_HEADERS})
 source_group("svm" FILES ${SRC_SVM_HEADERS})
 
 if(WITH_CYCLES_CUDA)
@@ -640,6 +658,9 @@ if(WITH_CYCLES_CUDA)
 endif()
 if(WITH_CYCLES_DEVICE_OPTIX AND WITH_CYCLES_CUDA_BINARIES)
   add_dependencies(cycles_kernel cycles_kernel_optix)
+endif()
+if(WITH_CYCLES_METAL)
+  add_dependencies(cycles_kernel cycles_kernel_metal)
 endif()
 
 # OpenCL kernel
@@ -652,19 +673,54 @@ endif()
 # add_custom_target(cycles_kernel_preprocess ALL DEPENDS ${KERNEL_PREPROCESSED})
 # delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "${KERNEL_PREPROCESSED}" ${CYCLES_INSTALL_PATH}/kernel)
 
+# Metal kernel
+if(WITH_CYCLES_DEVICE_METAL)
+set(input "device/metal/kernel.metal")
+set(METALAIR_FILE "${CMAKE_CURRENT_BINARY_DIR}/kernel.air")
+set(METALLIB_FILE "${CMAKE_CURRENT_BINARY_DIR}/kernel.metallib")
+set(METAL_INCLUDE_DIRS "")
+  foreach (inc ${SRC_DEVICE_METAL_HEADERS})
+     file(TO_NATIVE_PATH "${inc}" native_path)
+     list(APPEND METAL_INCLUDE_DIRS "-I${CMAKE_CURRENT_SOURCE_DIR}/${native_path}")
+     message(${METAL_INCLUDE_DIRS})
+  endforeach()
+add_custom_command(
+  OUTPUT ${METALLIB_FILE}
+  COMMAND xcrun -sdk macosx metal -v -c ${input} ${METAL_INCLUDE_DIRS} -o ${METALAIR_FILE}
+  COMMAND xcrun -sdk macosx metallib -v ${METALAIR_FILE} -o ${METALLIB_FILE}
+  DEPENDS
+    ${input}
+    ${SRC_HEADERS}
+    ${SRC_DEVICE_METAL_HEADERS}
+    ${SRC_BVH_HEADERS}
+    ${SRC_SVM_HEADERS}
+    ${SRC_GEOM_HEADERS}
+    ${SRC_INTEGRATOR_HEADERS}
+    ${SRC_CLOSURE_HEADERS}
+    ${SRC_UTIL_HEADERS}
+  WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+  BYPRODUCTS ${METALAIR_FILE}
+)
+add_custom_target(cycles_kernel_metal ALL DEPENDS ${METALLIB_FILE})
+cycles_set_solution_folder(cycles_kernel_metal)
+endif()  
+
 delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "${SRC_DEVICE_OPENCL}" ${CYCLES_INSTALL_PATH}/source/kernel/device/opencl)
 delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "${SRC_DEVICE_CUDA}" ${CYCLES_INSTALL_PATH}/source/kernel/device/cuda)
 delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "${SRC_DEVICE_OPTIX}" ${CYCLES_INSTALL_PATH}/source/kernel/device/optix)
+delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "${SRC_DEVICE_METAL}" ${CYCLES_INSTALL_PATH}/source/kernel/device/metal)
 delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "${SRC_HEADERS}" ${CYCLES_INSTALL_PATH}/source/kernel)
 delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "${SRC_DEVICE_OPENCL_HEADERS}" ${CYCLES_INSTALL_PATH}/source/kernel/device/opencl)
 delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "${SRC_DEVICE_CUDA_HEADERS}" ${CYCLES_INSTALL_PATH}/source/kernel/device/cuda)
 delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "${SRC_DEVICE_OPTIX_HEADERS}" ${CYCLES_INSTALL_PATH}/source/kernel/device/optix)
+delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "${SRC_DEVICE_METAL_HEADERS}" ${CYCLES_INSTALL_PATH}/source/kernel/device/metal)
 delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "${SRC_BVH_HEADERS}" ${CYCLES_INSTALL_PATH}/source/kernel/bvh)
 delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "${SRC_CLOSURE_HEADERS}" ${CYCLES_INSTALL_PATH}/source/kernel/closure)
 delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "${SRC_SVM_HEADERS}" ${CYCLES_INSTALL_PATH}/source/kernel/svm)
 delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "${SRC_GEOM_HEADERS}" ${CYCLES_INSTALL_PATH}/source/kernel/geom)
 delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "${SRC_INTEGRATOR_HEADERS}" ${CYCLES_INSTALL_PATH}/source/kernel/integrator)
 delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "${SRC_UTIL_HEADERS}" ${CYCLES_INSTALL_PATH}/source/util)
+
 
 
 if(WITH_NANOVDB)

@@ -65,9 +65,9 @@ ccl_device float cubic_h1(float a)
 
 /* Fast bicubic texture lookup using 4 bilinear lookups, adapted from CUDA samples. */
 template<typename T>
-ccl_device T kernel_tex_image_interp_bicubic(const TextureInfo &info, float x, float y)
+ccl_device T kernel_tex_image_interp_bicubic(thread const TextureInfo &info, float x, float y)
 {
-  CUtexObject tex = (CUtexObject)info.data;
+  uint64_t tex = info.data;
 
   x = (x * info.width) - 0.5f;
   y = (y * info.height) - 0.5f;
@@ -85,15 +85,15 @@ ccl_device T kernel_tex_image_interp_bicubic(const TextureInfo &info, float x, f
   float y0 = (py + cubic_h0(fy) + 0.5f) / info.height;
   float y1 = (py + cubic_h1(fy) + 0.5f) / info.height;
 
-  return cubic_g0(fy) * (g0x * tex2D<T>(tex, x0, y0) + g1x * tex2D<T>(tex, x1, y0)) +
-         cubic_g1(fy) * (g0x * tex2D<T>(tex, x0, y1) + g1x * tex2D<T>(tex, x1, y1));
+  return cubic_g0(fy) * (g0x *  float3(tex, x0, y0) + g1x *  float3(tex, x1, y0)) +
+         cubic_g1(fy) * (g0x *  float3(tex, x0, y1) + g1x *  float3(tex, x1, y1));
 }
 
 /* Fast tricubic texture lookup using 8 trilinear lookups. */
 template<typename T>
-ccl_device T kernel_tex_image_interp_tricubic(const TextureInfo &info, float x, float y, float z)
+ccl_device T kernel_tex_image_interp_tricubic(thread const TextureInfo &info, float x, float y, float z)
 {
-  CUtexObject tex = (CUtexObject)info.data;
+  uint64_t tex = info.data;
 
   x = (x * info.width) - 0.5f;
   y = (y * info.height) - 0.5f;
@@ -121,10 +121,10 @@ ccl_device T kernel_tex_image_interp_tricubic(const TextureInfo &info, float x, 
   float z0 = (pz + cubic_h0(fz) + 0.5f) / info.depth;
   float z1 = (pz + cubic_h1(fz) + 0.5f) / info.depth;
 
-  return g0z * (g0y * (g0x * tex3D<T>(tex, x0, y0, z0) + g1x * tex3D<T>(tex, x1, y0, z0)) +
-                g1y * (g0x * tex3D<T>(tex, x0, y1, z0) + g1x * tex3D<T>(tex, x1, y1, z0))) +
-         g1z * (g0y * (g0x * tex3D<T>(tex, x0, y0, z1) + g1x * tex3D<T>(tex, x1, y0, z1)) +
-                g1y * (g0x * tex3D<T>(tex, x0, y1, z1) + g1x * tex3D<T>(tex, x1, y1, z1)));
+  return g0z * (g0y * (g0x *  float4(tex, x0, y0, z0) + g1x *  float4(tex, x1, y0, z0)) +
+                g1y * (g0x *  float4(tex, x0, y1, z0) + g1x *  float4(tex, x1, y1, z0))) +
+         g1z * (g0y * (g0x *  float4(tex, x0, y0, z1) + g1x *  float4(tex, x1, y0, z1)) +
+                g1y * (g0x *  float4(tex, x0, y1, z1) + g1x *  float4(tex, x1, y1, z1)));
 }
 
 #ifdef WITH_NANOVDB
@@ -182,7 +182,7 @@ ccl_device_inline T kernel_tex_image_interp_nanovdb(
 }
 #endif
 
-ccl_device float4 kernel_tex_image_interp(const KernelGlobals *kg, int id, float x, float y)
+ccl_device float4 kernel_tex_image_interp(thread const KernelGlobals *kg, int id, float x, float y)
 {
   const TextureInfo &info = kernel_tex_fetch(__texture_info, id);
 
@@ -194,7 +194,7 @@ ccl_device float4 kernel_tex_image_interp(const KernelGlobals *kg, int id, float
       return kernel_tex_image_interp_bicubic<float4>(info, x, y);
     }
     else {
-      CUtexObject tex = (CUtexObject)info.data;
+      uint64_t tex = info.data;
       return tex2D<float4>(tex, x, y);
     }
   }
@@ -206,7 +206,7 @@ ccl_device float4 kernel_tex_image_interp(const KernelGlobals *kg, int id, float
       f = kernel_tex_image_interp_bicubic<float>(info, x, y);
     }
     else {
-      CUtexObject tex = (CUtexObject)info.data;
+      uint64_t  tex = info.data;
       f = tex2D<float>(tex, x, y);
     }
 
@@ -214,7 +214,7 @@ ccl_device float4 kernel_tex_image_interp(const KernelGlobals *kg, int id, float
   }
 }
 
-ccl_device float4 kernel_tex_image_interp_3d(const KernelGlobals *kg,
+ccl_device float4 kernel_tex_image_interp_3d(thread const KernelGlobals *kg,
                                              int id,
                                              float3 P,
                                              InterpolationType interp)
@@ -249,7 +249,7 @@ ccl_device float4 kernel_tex_image_interp_3d(const KernelGlobals *kg,
       return kernel_tex_image_interp_tricubic<float4>(info, x, y, z);
     }
     else {
-      CUtexObject tex = (CUtexObject)info.data;
+      uint64_t  tex = info.data;
       return tex3D<float4>(tex, x, y, z);
     }
   }
@@ -260,7 +260,7 @@ ccl_device float4 kernel_tex_image_interp_3d(const KernelGlobals *kg,
       f = kernel_tex_image_interp_tricubic<float>(info, x, y, z);
     }
     else {
-      CUtexObject tex = (CUtexObject)info.data;
+      uint64_t  tex = info.data;
       f = tex3D<float>(tex, x, y, z);
     }
 

@@ -20,7 +20,7 @@ CCL_NAMESPACE_BEGIN
 
 /* Parallel sum of array input_data with size n into output_sum.
  *
- * Adapted from "Optimizing Parallel Reduction in METAL", Mark Harris.
+ * Adapted from "Optimizing Parallel Reduction in CUDA", Mark Harris.
  *
  * This version adds multiple elements per thread sequentially.  This reduces
  * the overall cost of the algorithm while keeping the work complexity O(n) and

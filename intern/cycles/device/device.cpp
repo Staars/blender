@@ -114,8 +114,6 @@ Device *Device::create(const DeviceInfo &info, Stats &stats, Profiler &profiler)
 #endif
 
   Device *device = NULL;
-  
-  VLOG(1) << "info.type" << info.type;
 
   switch (info.type) {
     case DEVICE_CPU:
@@ -136,7 +134,6 @@ Device *Device::create(const DeviceInfo &info, Stats &stats, Profiler &profiler)
 #ifdef WITH_METAL
     case DEVICE_METAL:
       if (device_metal_init())
-        VLOG(1) << "device_metal_create";
         device = device_metal_create(info, stats, profiler);
       break;
 #endif

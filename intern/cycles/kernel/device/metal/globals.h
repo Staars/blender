@@ -32,12 +32,12 @@ struct KernelGlobals {
 };
 
 /* Global scene data and textures */
-__constant__ KernelData __data;
-#define KERNEL_TEX(type, name) const __constant__ __device__ type *name;
+constant KernelData __data [[buffer(__COUNTER__)]];
+#define KERNEL_TEX(type, name) constant type *name [[user(__COUNTER__+1)]];
 #include "kernel/kernel_textures.h"
 
 /* Integrator state */
-__constant__ IntegratorStateGPU __integrator_state;
+constant IntegratorStateGPU __integrator_state [[buffer(__COUNTER__+1)];
 
 /* Abstraction macros */
 #define kernel_data __data
