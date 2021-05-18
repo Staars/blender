@@ -660,7 +660,7 @@ if(WITH_CYCLES_DEVICE_OPTIX AND WITH_CYCLES_CUDA_BINARIES)
   add_dependencies(cycles_kernel cycles_kernel_optix)
 endif()
 if(WITH_CYCLES_METAL)
-  #add_dependencies(cycles_kernel cycles_kernel_metal)
+  add_dependencies(cycles_kernel cycles_kernel_metal)
 endif()
 
 # OpenCL kernel
@@ -696,10 +696,10 @@ add_custom_command(
     ${SRC_DEVICE_METAL_HEADERS}
     ${SRC_BVH_HEADERS}
     ${SRC_SVM_HEADERS}
-    #${SRC_GEOM_HEADERS}
-    #${SRC_INTEGRATOR_HEADERS}
-    #${SRC_CLOSURE_HEADERS}
-    #${SRC_UTIL_HEADERS}
+    ${SRC_GEOM_HEADERS}
+    ${SRC_INTEGRATOR_HEADERS}
+    ${SRC_CLOSURE_HEADERS}
+    ${SRC_UTIL_HEADERS}
   WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
   BYPRODUCTS ${METALAIR_FILE}
 )

@@ -275,7 +275,7 @@ ccl_device float4 color_srgb_to_linear_v4(float4 c)
 #endif
 }
 
-ccl_device float3 color_highlight_compress(float3 color, float3 *variance)
+ccl_device float3 color_highlight_compress(float3 color, thread float3 *variance)
 {
   color += one_float3();
   if (variance) {

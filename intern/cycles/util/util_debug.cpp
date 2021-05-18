@@ -75,6 +75,17 @@ void DebugFlags::OptiX::reset()
   curves_api = false;
 }
 
+DebugFlags::Metal::Metal()
+{
+  reset();
+}
+
+void DebugFlags::Metal::reset()
+{
+  // TODO
+}
+
+
 DebugFlags::OpenCL::OpenCL() : device_type(DebugFlags::OpenCL::DEVICE_ALL), debug(false)
 {
   reset();
@@ -138,6 +149,9 @@ std::ostream &operator<<(std::ostream &os, DebugFlagsConstRef debug_flags)
 
   os << "OptiX flags:\n"
      << "  Curves API : " << debug_flags.optix.curves_api << "\n";
+  
+  os << "Metal flags:\n"
+     << "  nothing implemented yet" << "\n";
 
   const char *opencl_device_type;
   switch (debug_flags.opencl.device_type) {

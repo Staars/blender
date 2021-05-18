@@ -189,7 +189,9 @@ using metal::fast::exp;
 using metal::dot;
 using metal::fast::normalize;
 using metal::cross;
+
 //#include "../util/util_types.h"
+
 
 /* define NULL */
 #ifndef NULL

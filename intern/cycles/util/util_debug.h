@@ -103,6 +103,15 @@ class DebugFlags {
     /* Use OptiX curves API for hair instead of custom implementation. */
     bool curves_api;
   };
+  
+  /* Descriptor of Metal feature-set to be used. */
+  struct Metal {
+    Metal();
+
+    /* Reset flags to their defaults. */
+    void reset();
+  };
+
 
   /* Descriptor of OpenCL feature-set to be used. */
   struct OpenCL {
@@ -172,6 +181,9 @@ class DebugFlags {
 
   /* Requested OptiX flags. */
   OptiX optix;
+  
+  /* Requested Metal flags. */
+  Metal metal;
 
   /* Requested OpenCL flags. */
   OpenCL opencl;
