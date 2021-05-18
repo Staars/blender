@@ -17,5 +17,6 @@
 /* METAL kernel entry points */
 
 #ifdef __APPLE__
+#  include "../kernel/device/metal/compat.h"
 
 #endif

@@ -21,6 +21,8 @@
 extern "C" {
 #endif
 
+#define ccl_metal_thread  
+
 /* create python module _cycles used by addon */
 
 void *CCL_python_module_init(void);
