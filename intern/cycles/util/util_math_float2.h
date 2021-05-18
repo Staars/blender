@@ -27,7 +27,7 @@ CCL_NAMESPACE_BEGIN
  * Declaration.
  */
 
-#if !defined(__KERNEL_OPENCL__) && !defined(__KERNEL_METAL__)
+#ifndef __KERNEL_OPENCL__
 ccl_device_inline float2 operator-(const float2 &a);
 ccl_device_inline float2 operator*(const float2 &a, const float2 &b);
 ccl_device_inline float2 operator*(const float2 &a, float f);
@@ -82,7 +82,7 @@ ccl_device_inline float2 one_float2()
   return make_float2(1.0f, 1.0f);
 }
 
-#if !defined(__KERNEL_OPENCL__) && !defined(__KERNEL_METAL__)
+#ifndef __KERNEL_OPENCL__
 ccl_device_inline float2 operator-(const float2 &a)
 {
   return make_float2(-a.x, -a.y);

@@ -27,7 +27,7 @@ CCL_NAMESPACE_BEGIN
  * Declaration.
  */
 
-#if !defined(__KERNEL_OPENCL__) && !defined(__KERNEL_METAL__)
+#ifndef __KERNEL_OPENCL__
 ccl_device_inline float3 operator-(const float3 &a);
 ccl_device_inline float3 operator*(const float3 &a, const float3 &b);
 ccl_device_inline float3 operator*(const float3 &a, const float f);
@@ -75,8 +75,8 @@ ccl_device_inline float3 project(const float3 v, const float3 v_proj);
 
 ccl_device_inline float3 saturate3(float3 a);
 ccl_device_inline float3 safe_normalize(const float3 a);
-ccl_device_inline float3 normalize_len(const float3 a, thread float *t);
-ccl_device_inline float3 safe_normalize_len(const float3 a, thread float *t);
+ccl_device_inline float3 normalize_len(const float3 a, float *t);
+ccl_device_inline float3 safe_normalize_len(const float3 a, float *t);
 ccl_device_inline float3 safe_divide_float3_float3(const float3 a, const float3 b);
 ccl_device_inline float3 safe_divide_float3_float(const float3 a, const float b);
 ccl_device_inline float3 interp(float3 a, float3 b, float t);
@@ -105,7 +105,7 @@ ccl_device_inline float3 one_float3()
   return make_float3(1.0f, 1.0f, 1.0f);
 }
 
-#if !defined(__KERNEL_OPENCL__) && !defined(__KERNEL_METAL__)
+#ifndef __KERNEL_OPENCL__
 ccl_device_inline float3 operator-(const float3 &a)
 {
 #  ifdef __KERNEL_SSE__
@@ -368,17 +368,14 @@ ccl_device_inline float max3(float3 a)
   return max(max(a.x, a.y), a.z);
 }
 
-#if !defined(__KERNEL_METAL__)
 ccl_device_inline float len(const float3 a)
 {
 #if defined(__KERNEL_SSE41__) && defined(__KERNEL_SSE__)
   return _mm_cvtss_f32(_mm_sqrt_ss(_mm_dp_ps(a.m128, a.m128, 0x7F)));
 #else
   return sqrtf(dot(a, a));
-//  return metal::sqrt(metal::dot(a, a));
 #endif
 }
-#endif /*__KERNEL_METAL__*/
 
 ccl_device_inline float len_squared(const float3 a)
 {
@@ -418,7 +415,6 @@ ccl_device_inline float3 saturate3(float3 a)
   return make_float3(saturate(a.x), saturate(a.y), saturate(a.z));
 }
 
-#if !defined(__KERNEL_METAL__)
 ccl_device_inline float3 normalize_len(const float3 a, float *t)
 {
   *t = len(a);
@@ -509,8 +505,6 @@ ccl_device_inline float3 log3(float3 v)
   return make_float3(logf(v.x), logf(v.y), logf(v.z));
 }
 
-
-
 ccl_device_inline int3 quick_floor_to_int3(const float3 a)
 {
 #ifdef __KERNEL_SSE__
@@ -522,8 +516,6 @@ ccl_device_inline int3 quick_floor_to_int3(const float3 a)
   return make_int3(quick_floor_to_int(a.x), quick_floor_to_int(a.y), quick_floor_to_int(a.z));
 #endif
 }
-
-#endif /*__KERNEL_METAL__*/
 
 ccl_device_inline bool isfinite3_safe(float3 v)
 {
