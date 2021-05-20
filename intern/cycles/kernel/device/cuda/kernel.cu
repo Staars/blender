@@ -34,7 +34,6 @@
 #  include "kernel/integrator/integrator_intersect_closest.h"
 #  include "kernel/integrator/integrator_intersect_shadow.h"
 #  include "kernel/integrator/integrator_intersect_subsurface.h"
-#  include "kernel/integrator/integrator_megakernel.h"
 #  include "kernel/integrator/integrator_shade_background.h"
 #  include "kernel/integrator/integrator_shade_light.h"
 #  include "kernel/integrator/integrator_shade_shadow.h"
@@ -77,23 +76,51 @@ extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS, CUD
 
 extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
                                               CUDA_KERNEL_MAX_REGISTERS)
-    kernel_cuda_integrator_init_from_camera(const int *path_index_array,
-                                            KernelWorkTile *tile,
-                                            float *render_buffer,
-                                            const int tile_work_size,
-                                            const int path_index_offset)
+    kernel_cuda_integrator_reset(int num_states, int num_keys)
 {
-  const int global_index = ccl_global_id(0);
-  const int work_index = global_index;
-  bool thread_is_active = work_index < tile_work_size;
-  if (thread_is_active) {
-    const int path_index = (path_index_array) ? path_index_array[global_index] :
-                                                path_index_offset + global_index;
+  const int path_index = ccl_global_id(0);
 
-    uint x, y, sample;
-    get_work_pixel(tile, work_index, &x, &y, &sample);
-    integrator_init_from_camera(NULL, path_index, tile, render_buffer, x, y, sample);
+  if (path_index < num_states) {
+    INTEGRATOR_STATE_WRITE(path, queued_kernel) = 0;
+    INTEGRATOR_STATE_WRITE(shadow_path, queued_kernel) = 0;
   }
+
+  if (path_index < num_keys) {
+    kernel_integrator_state.sort_key_counter[path_index] = 0;
+  }
+}
+
+extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
+                                              CUDA_KERNEL_MAX_REGISTERS)
+    kernel_cuda_integrator_init_from_camera(const int *path_index_array,
+                                            KernelWorkTile *tiles,
+                                            const int num_tiles,
+                                            float *render_buffer,
+                                            const int max_tile_work_size)
+{
+  const int work_index = ccl_global_id(0);
+
+  if (work_index >= max_tile_work_size * num_tiles) {
+    return;
+  }
+
+  const int tile_index = work_index / max_tile_work_size;
+  const int tile_work_index = work_index - tile_index * max_tile_work_size;
+
+  const KernelWorkTile *tile = &tiles[tile_index];
+
+  if (tile_work_index >= tile->work_size) {
+    return;
+  }
+
+  const int path_index = (path_index_array) ?
+                             path_index_array[tile->path_index_offset + tile_work_index] :
+                             tile->path_index_offset + tile_work_index;
+
+  uint x, y, sample;
+  get_work_pixel(tile, tile_work_index, &x, &y, &sample);
+
+  integrator_init_from_camera(nullptr, path_index, tile, render_buffer, x, y, sample);
 }
 
 extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
@@ -199,20 +226,6 @@ extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
   if (global_index < work_size) {
     const int path_index = (path_index_array) ? path_index_array[global_index] : global_index;
     integrator_shade_volume(NULL, path_index, render_buffer);
-  }
-}
-
-extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
-                                              CUDA_KERNEL_MAX_REGISTERS)
-    kernel_cuda_integrator_megakernel(const int *path_index_array,
-                                      float *render_buffer,
-                                      const int work_size)
-{
-  const int global_index = ccl_global_id(0);
-
-  if (global_index < work_size) {
-    const int path_index = (path_index_array) ? path_index_array[global_index] : global_index;
-    integrator_megakernel(NULL, path_index, render_buffer);
   }
 }
 

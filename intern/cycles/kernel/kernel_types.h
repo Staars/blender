@@ -1577,6 +1577,10 @@ typedef struct KernelWorkTile {
 
   int offset;
   uint stride;
+
+  /* Precalculated parameters used by init_from_camera kernel on GPU. */
+  int path_index_offset;
+  int work_size;
 } KernelWorkTile;
 
 /* Shader Evaluation.
@@ -1616,6 +1620,7 @@ typedef enum DeviceKernel {
   DEVICE_KERNEL_INTEGRATOR_ACTIVE_PATHS_ARRAY,
   DEVICE_KERNEL_INTEGRATOR_TERMINATED_PATHS_ARRAY,
   DEVICE_KERNEL_INTEGRATOR_SORTED_PATHS_ARRAY,
+  DEVICE_KERNEL_INTEGRATOR_RESET,
 
   DEVICE_KERNEL_SHADER_EVAL_DISPLACE,
   DEVICE_KERNEL_SHADER_EVAL_BACKGROUND,

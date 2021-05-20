@@ -16,12 +16,13 @@
 
 #pragma once
 
-#include "render/film.h"
+#include "render/pass.h"
 #include "util/util_string.h"
 #include "util/util_vector.h"
 
 CCL_NAMESPACE_BEGIN
 
+class Film;
 class RenderBuffers;
 
 /* Helper class which allows to access pass data.
@@ -29,13 +30,12 @@ class RenderBuffers;
  * progressively update from various render buffers. */
 class PassAccessor {
  public:
-  PassAccessor(const vector<Pass> &passes,
-               const string &pass_name,
+  PassAccessor(const Film *film,
+               const vector<Pass> &passes,
+               const Pass *pass,
                int num_components,
                float exposure,
                int num_samples);
-
-  bool is_valid() const;
 
   /* Get pass data from the given render buffers, perform needed filtering, and store result into
    * the pixels.
@@ -46,13 +46,12 @@ class PassAccessor {
   bool set_pass_rect(PassType type, int components, float *pixels);
 #endif
 
+  /* Returns PASS_UNUSED if there is no pass with the given type. */
   int get_pass_offset(PassType type) const;
 
-  /* NOTE: Leaves pass and offset unchanged if the pass is not found. */
-  bool get_pass_by_name(const string &name, const Pass **r_pass, int *r_offset = nullptr) const;
-  bool get_pass_by_type(const PassType type, const Pass **r_pass, int *r_offset = nullptr) const;
-
  protected:
+  const Film *film_;
+
   const vector<Pass> &passes_;
 
   int pass_offset_ = -1;
@@ -62,8 +61,6 @@ class PassAccessor {
 
   float exposure_ = 0.0f;
   int num_samples_ = 0;
-
-  bool approximate_shadow_in_matte_ = false;
 };
 
 CCL_NAMESPACE_END
