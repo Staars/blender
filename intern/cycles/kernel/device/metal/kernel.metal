@@ -17,6 +17,13 @@
 /* METAL kernel entry points */
 
 #ifdef __APPLE__
-#  include "../kernel/device/metal/compat.h"
+#  include "kernel/device/metal/compat.h"
+#  include "kernel/device/metal/globals.h"
+#  include "kernel/device/metal/image.h"
+#  include "kernel/device/metal/parallel_active_index.h"
+#  include "kernel/device/metal/parallel_prefix_sum.h"
+#  include "kernel/device/metal/parallel_sorted_index.h"
+
+
 
 #endif

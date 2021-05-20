@@ -28,16 +28,12 @@ CCL_NAMESPACE_BEGIN
 /* Not actually used, just a NULL pointer that gets passed everywhere, which we
  * hope gets optimized out by the compiler. */
 struct KernelGlobals {
-  int unused[1];
-};
-
-/* Global scene data and textures */
-constant KernelData __data [[buffer(__COUNTER__)]];
-#define KERNEL_TEX(type, name) constant type *name [[user(__COUNTER__+1)]];
+  int unused[1]; //TODO: maybe unnecessary
+#define KERNEL_TEX(type, name) type name;
 #include "kernel/kernel_textures.h"
-
-/* Integrator state */
-constant IntegratorStateGPU __integrator_state [[buffer(__COUNTER__+1)];
+  KernelData __data;
+  IntegratorStateGPU __integrator_state;
+};
 
 /* Abstraction macros */
 #define kernel_data __data

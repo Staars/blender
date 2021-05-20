@@ -134,10 +134,10 @@
 #define make_uchar4(x, y, z, w) (uchar4(x, y, z, w))
 
 ///* math functions */
-#define __uint_as_float(x) float(x)
-#define __float_as_uint(x) uint(x)
-#define __int_as_float(x) float(x)
-#define __float_as_int(x) int(x)
+//#define __uint_as_float(x) float(x)
+//#define __float_as_uint(x) uint(x)
+//#define __int_as_float(x) float(x)
+//#define __float_as_int(x) int(x)
 #define powf(x, y) metal::pow(((float)(x)), ((float)(y)))
 #define fabsf(x) metal::fabs(((float)(x)))
 #define copysignf(x, y) metal::copysign(((float)(x)), ((float)(y)))
@@ -165,12 +165,11 @@
 //#define modf metal::modf
 #define fmodf fmod
 #define logf metal::log
-#define lgamma metal::gamma
+#define lgamma metal::log //TODO: !!!!!
 //#define abs metal::fast::abs
 //#define log metal::log
-#define log3 log
-#define exp3 exp
-#define float_to_int (float)
+//#define log3 log
+#define expf exp
 
 /* Types */
 
@@ -189,6 +188,8 @@ using metal::fast::exp;
 using metal::dot;
 using metal::fast::normalize;
 using metal::cross;
+using metal::all;
+using metal::clz;
 
 //#include "../util/util_types.h"
 

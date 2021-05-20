@@ -156,7 +156,11 @@ ccl_device float fast_cosf(float x)
   return u;
 }
 
+#ifdef __KERNEL_METAL__
+ccl_device void fast_sincosf(float x, thread float *sine, thread float *cosine)
+#else
 ccl_device void fast_sincosf(float x, float *sine, float *cosine)
+#endif
 {
   /* Same argument reduction as fast_sin. */
   int q = fast_rint(x * M_1_PI_F);

@@ -26,7 +26,7 @@
 #  include <cmath>
 #endif
 
-#ifndef __KERNEL_OPENCL__
+#if !(defined(__KERNEL_OPENCL__)||defined(__KERNEL_METAL__))
 #  include <float.h>
 #  include <math.h>
 #  include <stdio.h>
@@ -171,7 +171,7 @@ ccl_device_inline float max4(float a, float b, float c, float d)
   return max(max(a, b), max(c, d));
 }
 
-#ifndef __KERNEL_OPENCL__
+#if !(defined(__KERNEL_OPENCL__))
 /* Int/Float conversion */
 
 ccl_device_inline int as_int(uint i)
@@ -284,7 +284,7 @@ ccl_device_inline float ensure_finite(float v)
   return isfinite_safe(v) ? v : 0.0f;
 }
 
-#ifndef __KERNEL_OPENCL__
+#if !(defined(__KERNEL_OPENCL__)||defined(__KERNEL_METAL__))
 ccl_device_inline int clamp(int a, int mn, int mx)
 {
   return min(max(a, mn), mx);
@@ -316,7 +316,7 @@ ccl_device_inline float smoothstep(float edge0, float edge1, float x)
 
 #endif /* __KERNEL_OPENCL__ */
 
-#ifndef __KERNEL_CUDA__
+#if !(defined(__KERNEL_CUDA__)||defined(__KERNEL_METAL__))
 ccl_device_inline float saturate(float a)
 {
   return clamp(a, 0.0f, 1.0f);
@@ -338,7 +338,11 @@ ccl_device_inline int quick_floor_to_int(float x)
   return float_to_int(x) - ((x < 0) ? 1 : 0);
 }
 
+#ifdef __KERNEL_METAL__
+ccl_device_inline float floorfrac(float x, thread int *i)
+#else
 ccl_device_inline float floorfrac(float x, int *i)
+#endif
 {
   *i = quick_floor_to_int(x);
   return x - *i;
@@ -456,7 +460,7 @@ CCL_NAMESPACE_END
 
 CCL_NAMESPACE_BEGIN
 
-#ifndef __KERNEL_OPENCL__
+#if !(defined(__KERNEL_OPENCL__)||defined(__KERNEL_METAL__))
 /* Interpolation */
 
 template<class A, class B> A lerp(const A &a, const A &b, const B &t)
@@ -468,7 +472,7 @@ template<class A, class B> A lerp(const A &a, const A &b, const B &t)
 
 /* Triangle */
 
-#ifndef __KERNEL_OPENCL__
+#if !(defined(__KERNEL_OPENCL__)||defined(__KERNEL_METAL__))
 ccl_device_inline float triangle_area(const float3 &v1, const float3 &v2, const float3 &v3)
 #else
 ccl_device_inline float triangle_area(const float3 v1, const float3 v2, const float3 v3)
@@ -479,7 +483,11 @@ ccl_device_inline float triangle_area(const float3 v1, const float3 v2, const fl
 
 /* Orthonormal vectors */
 
+#if defined(__KERNEL_METAL__)
+ccl_device_inline void make_orthonormals(const float3 N, thread float3 *a, thread float3 *b)
+#else
 ccl_device_inline void make_orthonormals(const float3 N, float3 *a, float3 *b)
+#endif
 {
 #if 0
   if (fabsf(N.y) >= 0.999f) {
@@ -670,7 +678,7 @@ ccl_device_inline float pow22(float a)
 
 ccl_device_inline float beta(float x, float y)
 {
-#ifndef __KERNEL_OPENCL__
+#if !(defined(__KERNEL_OPENCL__)||defined(__KERNEL_METAL__))
   return expf(lgammaf(x) + lgammaf(y) - lgammaf(x + y));
 #else
   return expf(lgamma(x) + lgamma(y) - lgamma(x + y));
@@ -691,7 +699,7 @@ ccl_device_inline uint count_leading_zeros(uint x)
 {
 #if defined(__KERNEL_CUDA__) || defined(__KERNEL_OPTIX__)
   return __clz(x);
-#elif defined(__KERNEL_OPENCL__)
+#elif defined(__KERNEL_OPENCL__)||defined(__KERNEL_METAL__)
   return clz(x);
 #else
   assert(x != 0);
@@ -709,7 +717,7 @@ ccl_device_inline uint count_trailing_zeros(uint x)
 {
 #if defined(__KERNEL_CUDA__) || defined(__KERNEL_OPTIX__)
   return (__ffs(x) - 1);
-#elif defined(__KERNEL_OPENCL__)
+#elif defined(__KERNEL_OPENCL__)||defined(__KERNEL_METAL__)
   return (31 - count_leading_zeros(x & -x));
 #else
   assert(x != 0);
@@ -727,7 +735,7 @@ ccl_device_inline uint find_first_set(uint x)
 {
 #if defined(__KERNEL_CUDA__) || defined(__KERNEL_OPTIX__)
   return __ffs(x);
-#elif defined(__KERNEL_OPENCL__)
+#elif defined(__KERNEL_OPENCL__)||defined(__KERNEL_METAL__)
   return (x != 0) ? (32 - count_leading_zeros(x & (-x))) : 0;
 #else
 #  ifdef _MSC_VER

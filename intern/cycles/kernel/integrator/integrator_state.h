@@ -98,7 +98,11 @@ typedef struct IntegratorQueueCounter {
  * GPU rendering path state with SoA layout. */
 typedef struct IntegratorStateGPU {
 #define KERNEL_STRUCT_BEGIN(name) struct {
+#ifdef __KERNEL_METAL__
+#define KERNEL_STRUCT_MEMBER(parent_struct, type, name) thread type *name;
+#else
 #define KERNEL_STRUCT_MEMBER(parent_struct, type, name) type *name;
+#endif
 #define KERNEL_STRUCT_ARRAY_MEMBER KERNEL_STRUCT_MEMBER
 #define KERNEL_STRUCT_END(name) \
   } \
@@ -113,8 +117,14 @@ typedef struct IntegratorStateGPU {
 #undef KERNEL_STRUCT_END
 #undef KERNEL_STRUCT_END_ARRAY
 
+
+#ifdef __KERNEL_METAL__
+  thread IntegratorQueueCounter *queue_counter;
+  thread int *sort_key_counter;
+#else
   IntegratorQueueCounter *queue_counter;
   int *sort_key_counter;
+#endif
 
   /* Offset of a complementary shadow catcher state for the current main state. */
   int shadow_catcher_state_offset;

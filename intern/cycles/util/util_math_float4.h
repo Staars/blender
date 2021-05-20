@@ -27,7 +27,7 @@ CCL_NAMESPACE_BEGIN
  * Declaration.
  */
 
-#ifndef __KERNEL_OPENCL__
+#if !(defined(__KERNEL_OPENCL__)||defined(__KERNEL_METAL__))
 ccl_device_inline float4 operator-(const float4 &a);
 ccl_device_inline float4 operator*(const float4 &a, const float4 &b);
 ccl_device_inline float4 operator*(const float4 &a, float f);
@@ -112,7 +112,7 @@ ccl_device_inline float4 one_float4()
   return make_float4(1.0f, 1.0f, 1.0f, 1.0f);
 }
 
-#ifndef __KERNEL_OPENCL__
+#if !(defined(__KERNEL_OPENCL__)||defined(__KERNEL_METAL__))
 ccl_device_inline float4 operator-(const float4 &a)
 {
 #  ifdef __KERNEL_SSE__

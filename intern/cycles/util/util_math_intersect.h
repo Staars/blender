@@ -20,14 +20,18 @@
 CCL_NAMESPACE_BEGIN
 
 /* Ray Intersection */
-
 ccl_device bool ray_sphere_intersect(float3 ray_P,
                                      float3 ray_D,
                                      float ray_t,
                                      float3 sphere_P,
                                      float sphere_radius,
+#ifdef __KERNEL_METAL__
+                                     thread float3 *isect_P,
+                                     thread float *isect_t)
+#else
                                      float3 *isect_P,
                                      float *isect_t)
+#endif
 {
   const float3 d = sphere_P - ray_P;
   const float radiussq = sphere_radius * sphere_radius;
@@ -60,8 +64,13 @@ ccl_device bool ray_aligned_disk_intersect(float3 ray_P,
                                            float ray_t,
                                            float3 disk_P,
                                            float disk_radius,
+#ifdef __KERNEL_METAL__
+                                           thread float3 *isect_P,
+                                           thread float *isect_t)
+#else
                                            float3 *isect_P,
                                            float *isect_t)
+#endif
 {
   /* Aligned disk normal. */
   float disk_t;
@@ -95,9 +104,15 @@ ccl_device_forceinline bool ray_triangle_intersect(float3 ray_P,
                                                    const float3 tri_b,
                                                    const float3 tri_c,
 #endif
+#ifdef __KERNEL_METAL__
+                                                   thread float *isect_u,
+                                                   thread float *isect_v,
+                                                   thread float *isect_t)
+#else
                                                    float *isect_u,
                                                    float *isect_v,
                                                    float *isect_t)
+#endif
 {
 #if defined(__KERNEL_SSE2__) && defined(__KERNEL_SSE__)
   typedef ssef float3;
@@ -207,11 +222,19 @@ ccl_device bool ray_quad_intersect(float3 ray_P,
                                    float3 quad_u,
                                    float3 quad_v,
                                    float3 quad_n,
+#ifdef __KERNEL_METAL__
+                                   thread float3 *isect_P,
+                                   thread float *isect_t,
+                                   thread float *isect_u,
+                                   thread float *isect_v,
+                                   bool ellipse)
+#else
                                    float3 *isect_P,
                                    float *isect_t,
                                    float *isect_u,
                                    float *isect_v,
                                    bool ellipse)
+#endif
 {
   /* Perform intersection test. */
   float t = -(dot(ray_P, quad_n) - dot(quad_P, quad_n)) / dot(ray_D, quad_n);

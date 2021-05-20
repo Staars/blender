@@ -53,7 +53,11 @@ typedef struct DecomposedTransform {
 
 /* Functions */
 
+#ifdef __KERNEL_METAL__
+ccl_device_inline float3 transform_point(thread const Transform *t, thread const float3 a)
+#else
 ccl_device_inline float3 transform_point(const Transform *t, const float3 a)
+#endif
 {
   /* TODO(sergey): Disabled for now, causes crashes in certain cases. */
 #if defined(__KERNEL_SSE__) && defined(__KERNEL_SSE2__)
@@ -82,7 +86,11 @@ ccl_device_inline float3 transform_point(const Transform *t, const float3 a)
 #endif
 }
 
+#ifdef __KERNEL_METAL__
+ccl_device_inline float3 transform_direction(thread const Transform *t, const float3 a)
+#else
 ccl_device_inline float3 transform_direction(const Transform *t, const float3 a)
+#endif
 {
 #if defined(__KERNEL_SSE__) && defined(__KERNEL_SSE2__)
   ssef x, y, z, w, aa;
@@ -108,7 +116,11 @@ ccl_device_inline float3 transform_direction(const Transform *t, const float3 a)
 #endif
 }
 
+#ifdef __KERNEL_METAL__
+ccl_device_inline float3 transform_direction_transposed(thread const Transform *t, const float3 a)
+#else
 ccl_device_inline float3 transform_direction_transposed(const Transform *t, const float3 a)
+#endif
 {
   float3 x = make_float3(t->x.x, t->y.x, t->z.x);
   float3 y = make_float3(t->x.y, t->y.y, t->z.y);
@@ -207,7 +219,11 @@ ccl_device_inline Transform operator*(const Transform a, const Transform b)
   return t;
 }
 
+#ifdef __KERNEL_METAL__
+ccl_device_inline void print_transform(thread const char *label, thread const Transform &t)
+#else
 ccl_device_inline void print_transform(const char *label, const Transform &t)
+#endif
 {
   print_float4(label, t.x);
   print_float4(label, t.y);
@@ -272,22 +288,38 @@ ccl_device_inline Transform transform_identity()
   return transform_scale(1.0f, 1.0f, 1.0f);
 }
 
+#ifdef __KERNEL_METAL__
+ccl_device_inline bool operator==(thread const Transform &A, thread const Transform &B)
+#else
 ccl_device_inline bool operator==(const Transform &A, const Transform &B)
+#endif
 {
   return memcmp(&A, &B, sizeof(Transform)) == 0;
 }
 
+#ifdef __KERNEL_METAL__
+ccl_device_inline bool operator!=(thread const Transform &A, thread const Transform &B)
+#else
 ccl_device_inline bool operator!=(const Transform &A, const Transform &B)
+#endif
 {
   return !(A == B);
 }
 
+#ifdef __KERNEL_METAL__
+ccl_device_inline float3 transform_get_column(thread const Transform *t, int column)
+#else
 ccl_device_inline float3 transform_get_column(const Transform *t, int column)
+#endif
 {
   return make_float3(t->x[column], t->y[column], t->z[column]);
 }
 
+#ifdef __KERNEL_METAL__
+ccl_device_inline void transform_set_column(thread Transform *t, int column, float3 value)
+#else
 ccl_device_inline void transform_set_column(Transform *t, int column, float3 value)
+#endif
 {
   t->x[column] = value.x;
   t->y[column] = value.y;
@@ -409,7 +441,11 @@ ccl_device_inline Transform transform_quick_inverse(Transform M)
   return R;
 }
 
+#ifdef __KERNEL_METAL__
+ccl_device_inline void transform_compose(thread Transform *tfm, thread const DecomposedTransform *decomp)
+#else
 ccl_device_inline void transform_compose(Transform *tfm, const DecomposedTransform *decomp)
+#endif
 {
   /* rotation */
   float q0, q1, q2, q3, qda, qdb, qdc, qaa, qab, qac, qbb, qbc, qcc;
@@ -448,18 +484,31 @@ ccl_device_inline void transform_compose(Transform *tfm, const DecomposedTransfo
 }
 
 /* Interpolate from array of decomposed transforms. */
+#ifdef __KERNEL_METAL__
+ccl_device void transform_motion_array_interpolate(thread Transform *tfm,
+                                                   thread const ccl_global DecomposedTransform *motion,
+                                                   uint numsteps,
+                                                   float time)
+#else
 ccl_device void transform_motion_array_interpolate(Transform *tfm,
                                                    const ccl_global DecomposedTransform *motion,
                                                    uint numsteps,
                                                    float time)
+#endif
 {
   /* Figure out which steps we need to interpolate. */
   int maxstep = numsteps - 1;
   int step = min((int)(time * maxstep), maxstep - 1);
   float t = time * maxstep - step;
 
+  
+#ifdef __KERNEL_METAL__
+  thread const ccl_global DecomposedTransform *a = motion + step;
+  thread const ccl_global DecomposedTransform *b = motion + step + 1;
+#else
   const ccl_global DecomposedTransform *a = motion + step;
   const ccl_global DecomposedTransform *b = motion + step + 1;
+#endif
 
   /* Interpolate rotation, translation and scale. */
   DecomposedTransform decomp;
@@ -472,12 +521,20 @@ ccl_device void transform_motion_array_interpolate(Transform *tfm,
   transform_compose(tfm, &decomp);
 }
 
+#ifdef __KERNEL_METAL__
+ccl_device_inline bool transform_isfinite_safe(thread Transform *tfm)
+#else
 ccl_device_inline bool transform_isfinite_safe(Transform *tfm)
+#endif
 {
   return isfinite4_safe(tfm->x) && isfinite4_safe(tfm->y) && isfinite4_safe(tfm->z);
 }
 
+#ifdef __KERNEL_METAL__
+ccl_device_inline bool transform_decomposed_isfinite_safe(thread DecomposedTransform *decomp)
+#else
 ccl_device_inline bool transform_decomposed_isfinite_safe(DecomposedTransform *decomp)
+#endif
 {
   return isfinite4_safe(decomp->x) && isfinite4_safe(decomp->y) && isfinite4_safe(decomp->z) &&
          isfinite4_safe(decomp->w);
