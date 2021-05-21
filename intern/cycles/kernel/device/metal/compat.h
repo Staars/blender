@@ -191,9 +191,6 @@ using metal::cross;
 using metal::all;
 using metal::clz;
 
-//#include "../util/util_types.h"
-
-
 /* define NULL */
 #ifndef NULL
 #  define NULL nullptr

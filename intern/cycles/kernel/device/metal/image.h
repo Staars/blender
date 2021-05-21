@@ -25,6 +25,19 @@ CCL_NAMESPACE_BEGIN
 #  include "nanovdb/util/SampleFromVoxels.h"
 #endif
 
+struct tex2D {
+    metal::texture2d<float> tex [[id(0)]];
+  float x;
+  float y;
+};
+
+struct tex3D {
+    metal::texture3d<float> tex [[id(0)]];
+  float x;
+  float y;
+  float z;
+};
+
 /* w0, w1, w2, and w3 are the four cubic B-spline basis functions. */
 ccl_device float cubic_w0(float a)
 {
@@ -67,7 +80,9 @@ ccl_device float cubic_h1(float a)
 template<typename T>
 ccl_device T kernel_tex_image_interp_bicubic(thread const TextureInfo &info, float x, float y)
 {
-  uint64_t tex = info.data;
+  metal::Texture2D tex (
+      *context, info.width, info.height, MTLPixelFormatRGBA8Unorm, MTLTextureUsageShaderRead);
+
 
   x = (x * info.width) - 0.5f;
   y = (y * info.height) - 0.5f;
@@ -85,15 +100,15 @@ ccl_device T kernel_tex_image_interp_bicubic(thread const TextureInfo &info, flo
   float y0 = (py + cubic_h0(fy) + 0.5f) / info.height;
   float y1 = (py + cubic_h1(fy) + 0.5f) / info.height;
 
-  return cubic_g0(fy) * (g0x *  float3(tex, x0, y0) + g1x *  float3(tex, x1, y0)) +
-         cubic_g1(fy) * (g0x *  float3(tex, x0, y1) + g1x *  float3(tex, x1, y1));
+  return cubic_g0(fy) * (g0x *  tex2D(tex, x0, y0) + g1x *  tex2D(tex, x1, y0)) +
+         cubic_g1(fy) * (g0x *  tex2D(tex, x0, y1) + g1x *  tex2D(tex, x1, y1));
 }
 
 /* Fast tricubic texture lookup using 8 trilinear lookups. */
 template<typename T>
 ccl_device T kernel_tex_image_interp_tricubic(thread const TextureInfo &info, float x, float y, float z)
 {
-  uint64_t tex = info.data;
+  metal::texture3d<float> tex = info.data;
 
   x = (x * info.width) - 0.5f;
   y = (y * info.height) - 0.5f;
@@ -121,10 +136,10 @@ ccl_device T kernel_tex_image_interp_tricubic(thread const TextureInfo &info, fl
   float z0 = (pz + cubic_h0(fz) + 0.5f) / info.depth;
   float z1 = (pz + cubic_h1(fz) + 0.5f) / info.depth;
 
-  return g0z * (g0y * (g0x *  float4(tex, x0, y0, z0) + g1x *  float4(tex, x1, y0, z0)) +
-                g1y * (g0x *  float4(tex, x0, y1, z0) + g1x *  float4(tex, x1, y1, z0))) +
-         g1z * (g0y * (g0x *  float4(tex, x0, y0, z1) + g1x *  float4(tex, x1, y0, z1)) +
-                g1y * (g0x *  float4(tex, x0, y1, z1) + g1x *  float4(tex, x1, y1, z1)));
+  return g0z * (g0y * (g0x *  tex3D(tex, x0, y0, z0) + g1x *  tex3D(tex, x1, y0, z0)) +
+                g1y * (g0x *  tex3D(tex, x0, y1, z0) + g1x *  tex3D(tex, x1, y1, z0))) +
+         g1z * (g0y * (g0x *  tex3D(tex, x0, y0, z1) + g1x *  tex3D(tex, x1, y0, z1)) +
+                g1y * (g0x *  tex3D(tex, x0, y1, z1) + g1x *  tex3D(tex, x1, y1, z1)));
 }
 
 #ifdef WITH_NANOVDB
@@ -249,7 +264,7 @@ ccl_device float4 kernel_tex_image_interp_3d(thread const KernelGlobals *kg,
       return kernel_tex_image_interp_tricubic<float4>(info, x, y, z);
     }
     else {
-      uint64_t  tex = info.data;
+      metal::texture3d<float> tex = info.data;
       return tex3D<float4>(tex, x, y, z);
     }
   }
@@ -260,7 +275,7 @@ ccl_device float4 kernel_tex_image_interp_3d(thread const KernelGlobals *kg,
       f = kernel_tex_image_interp_tricubic<float>(info, x, y, z);
     }
     else {
-      uint64_t  tex = info.data;
+      metal::texture3d<float> tex = info.data;
       f = tex3D<float>(tex, x, y, z);
     }
 
