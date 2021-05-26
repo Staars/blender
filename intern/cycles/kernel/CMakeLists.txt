@@ -704,15 +704,15 @@ add_custom_command(
   COMMAND xcrun -v -sdk macosx metallib ${METALAIR_FILE} -o ${METALLIB_FILE}
   DEPENDS
     ${METALAIR_FILE}
-    ${input}
-    ${SRC_HEADERS}
-    ${SRC_DEVICE_METAL_HEADERS}
-    ${SRC_BVH_HEADERS}
-    ${SRC_SVM_HEADERS}
-    ${SRC_GEOM_HEADERS}
-    ${SRC_INTEGRATOR_HEADERS}
-    ${SRC_CLOSURE_HEADERS}
-    ${SRC_UTIL_HEADERS}
+#    ${input}
+#    ${SRC_HEADERS}
+#    ${SRC_DEVICE_METAL_HEADERS}
+#    ${SRC_BVH_HEADERS}
+#    ${SRC_SVM_HEADERS}
+#    ${SRC_GEOM_HEADERS}
+#    ${SRC_INTEGRATOR_HEADERS}
+#    ${SRC_CLOSURE_HEADERS}
+#    ${SRC_UTIL_HEADERS}
   WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
 add_custom_target(cycles_kernel_metal ALL DEPENDS ${METALLIB_FILE})

@@ -87,8 +87,6 @@ METALDevice::METALDevice(const DeviceInfo &info, Stats &stats, Profiler &profile
   map_host_used = 0;
   can_map_host = 0;
   pitch_alignment = 0;
-  
-  VLOG(1) << "STAARS: construct Metal Device";
 
   for (id<MTLDevice> device in MTLCopyAllDevices()) {
 //    if(info.id == string(device.registryID)) {
@@ -98,7 +96,12 @@ METALDevice::METALDevice(const DeviceInfo &info, Stats &stats, Profiler &profile
       mtlDevice = device;
       mtlQueue = mtlDevice.newCommandQueue;
       mtlCommandBuffer  = mtlQueue.commandBuffer;
-      mtlLibrary = mtlDevice.newDefaultLibrary;
+      const string source_path = path_get("kernel") + "/kernel.metallib";
+      NSError *libraryError = NULL;
+      id <MTLLibrary> mtlLibrary = [mtlDevice newLibraryWithFile:[NSString stringWithUTF8String:source_path.c_str()] error:&libraryError];
+      if (!mtlLibrary) {
+          NSLog(@"Library error: %@", libraryError.localizedDescription);
+      }
     }
   }
   //TODO error check ...
