@@ -54,6 +54,9 @@ class PathTraceWorkGPU : public PathTraceWork {
   void alloc_integrator_queue();
   void alloc_integrator_sorting();
 
+  /* Returns DEVICE_KERNEL_NUM if there are no scheduled kernels. */
+  DeviceKernel get_most_queued_kernel() const;
+
   void enqueue_reset();
 
   bool enqueue_work_tiles(bool &finished);
@@ -133,6 +136,10 @@ class PathTraceWorkGPU : public PathTraceWork {
 
   /* Maximum number of concurrent integrator states. */
   int max_num_paths_;
+
+  /* Minimum number of paths which keeps the device bust. If the actual number of paths falls below
+   * this value more work will be scheduled. */
+  int min_num_active_paths_;
 
   /* Maximum path index, effective number of paths used may be smaller than
    * the size of the integrator_state_ buffer so can avoid iterating over the

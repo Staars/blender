@@ -44,6 +44,7 @@ PathTraceWorkGPU::PathTraceWorkGPU(Device *device,
       work_tiles_(device, "work_tiles", MEM_READ_WRITE),
       gpu_display_rgba_half_(device, "display buffer half", MEM_READ_WRITE),
       max_num_paths_(queue_->num_concurrent_states(sizeof(IntegratorState))),
+      min_num_active_paths_(queue_->num_concurrent_busy_states()),
       max_active_path_index_(0)
 {
   memset(&integrator_state_gpu_, 0, sizeof(integrator_state_gpu_));
@@ -193,6 +194,23 @@ void PathTraceWorkGPU::render_samples(int start_sample, int samples_num)
   }
 }
 
+DeviceKernel PathTraceWorkGPU::get_most_queued_kernel() const
+{
+  const IntegratorQueueCounter *queue_counter = integrator_queue_counter_.data();
+
+  int max_num_queued = 0;
+  DeviceKernel kernel = DEVICE_KERNEL_NUM;
+
+  for (int i = 0; i < DEVICE_KERNEL_INTEGRATOR_NUM; i++) {
+    if (queue_counter->num_queued[i] > max_num_queued) {
+      kernel = (DeviceKernel)i;
+      max_num_queued = queue_counter->num_queued[i];
+    }
+  }
+
+  return kernel;
+}
+
 void PathTraceWorkGPU::enqueue_reset()
 {
   const int num_keys = integrator_sort_key_counter_.size();
@@ -210,7 +228,7 @@ void PathTraceWorkGPU::enqueue_reset()
 bool PathTraceWorkGPU::enqueue_path_iteration()
 {
   /* Find kernel to execute, with max number of queued paths. */
-  IntegratorQueueCounter *queue_counter = integrator_queue_counter_.data();
+  const IntegratorQueueCounter *queue_counter = integrator_queue_counter_.data();
 
   int num_paths = 0;
   for (int i = 0; i < DEVICE_KERNEL_INTEGRATOR_NUM; i++) {
@@ -222,17 +240,8 @@ bool PathTraceWorkGPU::enqueue_path_iteration()
   }
 
   /* Find kernel to execute, with max number of queued paths. */
-  int max_num_queued = 0;
-  DeviceKernel kernel = DEVICE_KERNEL_NUM;
-
-  for (int i = 0; i < DEVICE_KERNEL_INTEGRATOR_NUM; i++) {
-    if (queue_counter->num_queued[i] > max_num_queued) {
-      kernel = (DeviceKernel)i;
-      max_num_queued = queue_counter->num_queued[i];
-    }
-  }
-
-  if (max_num_queued == 0) {
+  const DeviceKernel kernel = get_most_queued_kernel();
+  if (kernel == DEVICE_KERNEL_NUM) {
     return false;
   }
 
@@ -390,7 +399,15 @@ void PathTraceWorkGPU::compute_queued_paths(DeviceKernel kernel, int queued_kern
 
 bool PathTraceWorkGPU::enqueue_work_tiles(bool &finished)
 {
-  const float regenerate_threshold = 0.5f;
+  /* If there are existing paths wait them to go to intersect closest kernel, which will align the
+   * wavefront of the existing and newely added paths. */
+  /* TODO: Check whether counting new intersection kernels here will have positive affect on the
+   * performance. */
+  const DeviceKernel kernel = get_most_queued_kernel();
+  if (kernel != DEVICE_KERNEL_NUM && kernel != DEVICE_KERNEL_INTEGRATOR_INTERSECT_CLOSEST) {
+    return false;
+  }
+
   int num_paths = get_num_active_paths();
 
   if (num_paths == 0) {
@@ -413,7 +430,7 @@ bool PathTraceWorkGPU::enqueue_work_tiles(bool &finished)
 
   /* Schedule when we're out of paths or there are too few paths to keep the
    * device occupied. */
-  if (num_paths == 0 || num_paths < regenerate_threshold * max_num_camera_paths) {
+  if (num_paths == 0 || num_paths < min_num_active_paths_) {
     /* Get work tiles until the maximum number of path is reached. */
     while (num_paths < max_num_camera_paths) {
       KernelWorkTile work_tile;
