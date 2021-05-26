@@ -34,8 +34,7 @@
 
 #else /* __KERNEL_GPU__ */
 
-#  ifdef __KERNEL_OPENCL__
-
+#  if defined(__KERNEL_OPENCL__)
 /* Float atomics implementation credits:
  *   http://suhorukov.blogspot.in/2011/12/opencl-11-atomic-operations-on-floating.html
  */
@@ -112,6 +111,58 @@ ccl_device_inline float atomic_compare_and_swap_float(volatile float *dest,
 #    define ccl_barrier(flags) __syncthreads()
 
 #  endif /* __KERNEL_CUDA__ */
+
+#  if defined(__KERNEL_METAL__)
+#include <metal_atomic>
+
+/* Float atomics implementation credits:
+ *   http://suhorukov.blogspot.in/2011/12/opencl-11-atomic-operations-on-floating.html
+ */
+ccl_device_inline float atomic_add_and_fetch_float(threadgroup volatile ccl_global float *source,
+                                                   const float operand)
+{
+  union {
+    unsigned int int_value;
+    float float_value;
+  } new_value;
+  union {
+    unsigned int int_value;
+    float float_value;
+  } prev_value;
+  do {
+    prev_value.float_value = *source;
+    new_value.float_value = prev_value.float_value + operand;
+  } while (atomic_compare_exchange_weak_explicit((volatile threadgroup ccl_global unsigned int *)source,
+                          prev_value.int_value,
+                          new_value.int_value) != prev_value.int_value, metal::memory_order_relaxed, metal::memory_order_relaxed);
+  return new_value.float_value;
+}
+
+ccl_device_inline float atomic_compare_and_swap_float(threadgroup volatile ccl_global float *dest,
+                                                      const float old_val,
+                                                      const float new_val)
+{
+  union {
+    unsigned int int_value;
+    float float_value;
+  } new_value, prev_value, result;
+  prev_value.float_value = old_val;
+  new_value.float_value = new_val;
+  result.int_value = atomic_compare_exchange_weak_explicit(
+      (volatile threadgroup ccl_global unsigned int *)dest, prev_value.int_value, new_value.int_value, metal::memory_order_relaxed, metal::memory_order_relaxed);
+  return result.float_value;
+}
+
+#    define atomic_fetch_and_add_uint32(p, x) atomic_fetch_add_explicit((p), (x), metal::memory_order_relaxed)
+#    define atomic_fetch_and_inc_uint32(p) atomic_fetch_add_explicit((p), (1), metal::memory_order_relaxed)
+#    define atomic_fetch_and_dec_uint32(p) atomic_fetch_sub_explicit((p), (1), metal::memory_order_relaxed)
+#    define atomic_fetch_and_or_uint32(p, x) atomic_fetch_or_explicit((p), (x), metal::memory_order_relaxed)
+
+#    define CCL_LOCAL_MEM_FENCE CLK_LOCAL_MEM_FENCE
+#    define ccl_barrier(flags) threadgroup_barrier(flags)
+
+#  endif /* __KERNEL_METAL__ */
+
 
 #endif /* __KERNEL_GPU__ */
 

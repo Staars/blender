@@ -195,3 +195,5 @@ using metal::clz;
 #ifndef NULL
 #  define NULL nullptr
 #endif
+
+#define __syncthreads  

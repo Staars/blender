@@ -31,12 +31,13 @@ CCL_NAMESPACE_BEGIN
 
 template<uint blocksize, typename GetKeyOp>
 __device__ void metal_parallel_sorted_index_array(const uint num_states,
-                                                 int *indices,
-                                                 int *num_indices,
-                                                 int *key_prefix_sum,
+                                                 thread int *indices,
+                                                 thread int *num_indices,
+                                                 thread int *key_prefix_sum,
                                                  GetKeyOp get_key_op)
 {
-  const uint state_index = blockIdx.x * blocksize + threadIdx.x;
+//  const uint state_index = blockIdx.x * blocksize + threadIdx.x;
+  const uint state_index = 0;
   const int key = (state_index < num_states) ? get_key_op(state_index) :
                                                METAL_PARALLEL_SORTED_INDEX_INACTIVE_KEY;
 

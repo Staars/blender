@@ -30,11 +30,11 @@ CCL_NAMESPACE_BEGIN
 #define METAL_PARALLEL_PREFIX_SUM_DEFAULT_BLOCK_SIZE 512
 
 template<uint blocksize>
-__device__ void metal_parallel_prefix_sum(int *values, const int num_values)
+__device__ void metal_parallel_prefix_sum(thread int *values, thread const int num_values)
 {
-  if (!(blockIdx.x == 0 && threadIdx.x == 0)) {
-    return;
-  }
+//  if (!(blockIdx.x == 0 && threadIdx.x == 0)) {
+//    return;
+//  }
 
   int offset = 0;
   for (int i = 0; i < num_values; i++) {
