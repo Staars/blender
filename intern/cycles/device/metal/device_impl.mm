@@ -180,7 +180,7 @@ string METALDevice::compile_kernel(const DeviceRequestedFeatures &requested_feat
                                   const char *base,
                                   bool force_ptx)
 {
-  return ""; //TODO
+  return "nothing to compile"; //TODO
 }
 
 bool METALDevice::load_kernels(const DeviceRequestedFeatures &requested_features)

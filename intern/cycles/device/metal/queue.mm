@@ -44,6 +44,17 @@ int METALDeviceQueue::num_concurrent_states(const size_t) const
   return 1048576;
 }
 
+int METALDeviceQueue::num_concurrent_busy_states()
+{
+  const int max_num_threads = 1024; //TODO: ....
+
+  if (max_num_threads == 0) {
+    return 65536;
+  }
+
+  return 4 * max_num_threads;
+}
+
 void METALDeviceQueue::init_execution()
 {
   /* Synchronize all textures and memory copies before executing task. */

@@ -659,9 +659,7 @@ endif()
 if(WITH_CYCLES_DEVICE_OPTIX AND WITH_CYCLES_CUDA_BINARIES)
   add_dependencies(cycles_kernel cycles_kernel_optix)
 endif()
-if(WITH_CYCLES_METAL)
-  add_dependencies(cycles_kernel cycles_kernel_metal)
-endif()
+
 
 # OpenCL kernel
 
@@ -687,9 +685,8 @@ set(METAL_INCLUDE_DIRS "-I../")
   endforeach()
 message(${CMAKE_CURRENT_SOURCE_DIR})
 add_custom_command(
-  OUTPUT ${METALLIB_FILE}
-  COMMAND xcrun -sdk macosx metal -v -c ${input} ${METAL_INCLUDE_DIRS} -o ${METALAIR_FILE}
-  COMMAND xcrun -sdk macosx metallib -v ${METALAIR_FILE} -o ${METALLIB_FILE}
+  OUTPUT ${METALAIR_FILE}
+  COMMAND xcrun -v -sdk macosx metal -c ${input} ${METAL_INCLUDE_DIRS} -o ${METALAIR_FILE}
   DEPENDS
     ${input}
     ${SRC_HEADERS}
@@ -701,11 +698,31 @@ add_custom_command(
     ${SRC_CLOSURE_HEADERS}
     ${SRC_UTIL_HEADERS}
   WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-  BYPRODUCTS ${METALAIR_FILE}
+)
+add_custom_command(
+  OUTPUT ${METALLIB_FILE}
+  COMMAND xcrun -v -sdk macosx metallib ${METALAIR_FILE} -o ${METALLIB_FILE}
+  DEPENDS
+    ${METALAIR_FILE}
+    ${input}
+    ${SRC_HEADERS}
+    ${SRC_DEVICE_METAL_HEADERS}
+    ${SRC_BVH_HEADERS}
+    ${SRC_SVM_HEADERS}
+    ${SRC_GEOM_HEADERS}
+    ${SRC_INTEGRATOR_HEADERS}
+    ${SRC_CLOSURE_HEADERS}
+    ${SRC_UTIL_HEADERS}
+  WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
 add_custom_target(cycles_kernel_metal ALL DEPENDS ${METALLIB_FILE})
+delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "${METALLIB_FILE}" ${CYCLES_INSTALL_PATH}/kernel)
 cycles_set_solution_folder(cycles_kernel_metal)
-endif()  
+endif()
+
+if(WITH_CYCLES_METAL)
+  add_dependencies(cycles_kernel cycles_kernel_metal)
+endif()
 
 delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "${SRC_DEVICE_OPENCL}" ${CYCLES_INSTALL_PATH}/source/kernel/device/opencl)
 delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "${SRC_DEVICE_CUDA}" ${CYCLES_INSTALL_PATH}/source/kernel/device/cuda)

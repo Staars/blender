@@ -36,6 +36,7 @@ class METALDeviceQueue : public DeviceQueue {
   ~METALDeviceQueue();
 
   virtual int num_concurrent_states(const size_t state_size) const override;
+  virtual int num_concurrent_busy_states() override;
 
   virtual void init_execution() override;
 
