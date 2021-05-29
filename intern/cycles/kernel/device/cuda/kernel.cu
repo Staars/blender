@@ -76,17 +76,13 @@ extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS, CUD
 
 extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
                                               CUDA_KERNEL_MAX_REGISTERS)
-    kernel_cuda_integrator_reset(int num_states, int num_keys)
+    kernel_cuda_integrator_reset(int num_states)
 {
   const int path_index = ccl_global_id(0);
 
   if (path_index < num_states) {
     INTEGRATOR_STATE_WRITE(path, queued_kernel) = 0;
     INTEGRATOR_STATE_WRITE(shadow_path, queued_kernel) = 0;
-  }
-
-  if (path_index < num_keys) {
-    kernel_integrator_state.sort_key_counter[path_index] = 0;
   }
 }
 
@@ -211,7 +207,8 @@ extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
 
   if (global_index < work_size) {
     const int path_index = (path_index_array) ? path_index_array[global_index] : global_index;
-    integrator_shade_surface(NULL, path_index, render_buffer);
+    integrator_shade_surface<NODE_FEATURE_MASK_SURFACE & ~NODE_FEATURE_RAYTRACE>(
+        NULL, path_index, render_buffer);
   }
 }
 

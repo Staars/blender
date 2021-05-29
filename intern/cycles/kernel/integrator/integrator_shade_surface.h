@@ -176,7 +176,7 @@ ccl_device_inline void integrate_surface_direct_light(INTEGRATOR_STATE_ARGS,
   integrator_state_copy_volume_stack_to_shadow(INTEGRATOR_STATE_PASS);
 
   /* Branch of shadow kernel. */
-  INTEGRATOR_SHADOW_PATH_INIT(INTERSECT_SHADOW);
+  INTEGRATOR_SHADOW_PATH_INIT(DEVICE_KERNEL_INTEGRATOR_INTERSECT_SHADOW);
 }
 #endif
 
@@ -284,6 +284,7 @@ ccl_device bool integrate_surface_bounce(INTEGRATOR_STATE_ARGS,
   }
 }
 
+template<uint node_feature_mask>
 ccl_device_inline bool integrate_surface(INTEGRATOR_STATE_ARGS,
                                          ccl_global float *ccl_restrict render_buffer)
 
@@ -306,8 +307,7 @@ ccl_device_inline bool integrate_surface(INTEGRATOR_STATE_ARGS,
 #endif
   {
     /* Evaluate shader. */
-    shader_eval_surface<NODE_FEATURE_MASK_SURFACE>(
-        INTEGRATOR_STATE_PASS, &sd, render_buffer, path_flag);
+    shader_eval_surface<node_feature_mask>(INTEGRATOR_STATE_PASS, &sd, render_buffer, path_flag);
   }
 
 #ifdef __SUBSURFACE__
@@ -379,20 +379,23 @@ ccl_device_inline bool integrate_surface(INTEGRATOR_STATE_ARGS,
   return integrate_surface_bounce(INTEGRATOR_STATE_PASS, &sd, &rng_state);
 }
 
+template<uint node_feature_mask = NODE_FEATURE_MASK_SURFACE>
 ccl_device void integrator_shade_surface(INTEGRATOR_STATE_ARGS,
                                          ccl_global float *ccl_restrict render_buffer)
 {
-  if (integrate_surface(INTEGRATOR_STATE_PASS, render_buffer)) {
+  if (integrate_surface<node_feature_mask>(INTEGRATOR_STATE_PASS, render_buffer)) {
     if (INTEGRATOR_STATE(path, flag) & PATH_RAY_SUBSURFACE) {
-      INTEGRATOR_PATH_NEXT(SHADE_SURFACE, INTERSECT_SUBSURFACE);
+      INTEGRATOR_PATH_NEXT(DEVICE_KERNEL_INTEGRATOR_SHADE_SURFACE,
+                           DEVICE_KERNEL_INTEGRATOR_INTERSECT_SUBSURFACE);
     }
     else {
       kernel_assert(INTEGRATOR_STATE(ray, t) != 0.0f);
-      INTEGRATOR_PATH_NEXT(SHADE_SURFACE, INTERSECT_CLOSEST);
+      INTEGRATOR_PATH_NEXT(DEVICE_KERNEL_INTEGRATOR_SHADE_SURFACE,
+                           DEVICE_KERNEL_INTEGRATOR_INTERSECT_CLOSEST);
     }
   }
   else {
-    INTEGRATOR_PATH_TERMINATE(SHADE_SURFACE);
+    INTEGRATOR_PATH_TERMINATE(DEVICE_KERNEL_INTEGRATOR_SHADE_SURFACE);
   }
 }
 

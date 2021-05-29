@@ -168,14 +168,8 @@ CCL_NAMESPACE_BEGIN
 #ifdef __NO_DENOISING__
 #  undef __DENOISING_FEATURES__
 #endif
-#ifdef __NO_SHADER_RAYTRACE__
-#  undef __SHADER_RAYTRACE__
-#endif
 
 /* Features that enable others */
-#ifdef WITH_CYCLES_DEBUG
-#  define __KERNEL_DEBUG__
-#endif
 
 #if defined(__SUBSURFACE__) || defined(__SHADER_RAYTRACE__)
 #  define __BVH_LOCAL__
@@ -427,12 +421,6 @@ typedef enum PassType {
   PASS_SHADOW_CATCHER,
   PASS_SHADOW_CATCHER_MATTE,
 
-#ifdef __KERNEL_DEBUG__
-  PASS_BVH_TRAVERSED_NODES,
-  PASS_BVH_TRAVERSED_INSTANCES,
-  PASS_BVH_INTERSECTIONS,
-  PASS_RAY_BOUNCES,
-#endif
   PASS_CATEGORY_DATA_END = 63,
 
   PASS_BAKE_PRIMITIVE,
@@ -473,18 +461,6 @@ typedef enum BakePassFilterCombos {
   BAKE_FILTER_GLOSSY_INDIRECT = (BAKE_FILTER_INDIRECT | BAKE_FILTER_GLOSSY),
   BAKE_FILTER_TRANSMISSION_INDIRECT = (BAKE_FILTER_INDIRECT | BAKE_FILTER_TRANSMISSION),
 } BakePassFilterCombos;
-
-#ifdef __KERNEL_DEBUG__
-/* NOTE: This is a runtime-only struct, alignment is not
- * really important here.
- */
-typedef struct DebugData {
-  int num_bvh_traversed_nodes;
-  int num_bvh_traversed_instances;
-  int num_bvh_intersections;
-  int num_ray_bounces;
-} DebugData;
-#endif
 
 typedef ccl_addr_space struct PathRadianceState {
 #ifdef __PASSES__
@@ -560,10 +536,6 @@ typedef ccl_addr_space struct PathRadiance {
   float3 denoising_normal;
   float3 denoising_albedo;
 #endif /* __DENOISING_FEATURES__ */
-
-#ifdef __KERNEL_DEBUG__
-  DebugData debug_data;
-#endif /* __KERNEL_DEBUG__ */
 } PathRadiance;
 
 typedef struct BsdfEval {
@@ -667,12 +639,6 @@ typedef struct Intersection {
   int prim;
   int object;
   int type;
-
-#ifdef __KERNEL_DEBUG__
-  int num_traversed_nodes;
-  int num_traversed_instances;
-  int num_intersections;
-#endif
 } Intersection;
 
 /* Primitives */
@@ -889,11 +855,14 @@ enum ShaderDataFlag {
   SD_NEED_VOLUME_ATTRIBUTES = (1 << 28),
   /* Shader has emission */
   SD_HAS_EMISSION = (1 << 29),
+  /* Shader has raytracing */
+  SD_HAS_RAYTRACE = (1 << 30),
 
   SD_SHADER_FLAGS = (SD_USE_MIS | SD_HAS_TRANSPARENT_SHADOW | SD_HAS_VOLUME | SD_HAS_ONLY_VOLUME |
                      SD_HETEROGENEOUS_VOLUME | SD_HAS_BSSRDF_BUMP | SD_VOLUME_EQUIANGULAR |
                      SD_VOLUME_MIS | SD_VOLUME_CUBIC | SD_HAS_BUMP | SD_HAS_DISPLACEMENT |
-                     SD_HAS_CONSTANT_EMISSION | SD_NEED_VOLUME_ATTRIBUTES)
+                     SD_HAS_CONSTANT_EMISSION | SD_NEED_VOLUME_ATTRIBUTES | SD_HAS_EMISSION |
+                     SD_HAS_RAYTRACE)
 };
 
 /* Object flags. */
@@ -1249,8 +1218,6 @@ typedef struct KernelFilm {
   /* Set to 1 if any of the above denoising passes present. */
   int have_denoising_passes;
 
-  int denoising_flags;
-
   int pass_aov_color;
   int pass_aov_value;
   int pass_aov_color_num;
@@ -1265,14 +1232,6 @@ typedef struct KernelFilm {
 
   int pass_bake_primitive;
   int pass_bake_differential;
-  int pad;
-
-#ifdef __KERNEL_DEBUG__
-  int pass_bvh_traversed_nodes;
-  int pass_bvh_traversed_instances;
-  int pass_bvh_intersections;
-  int pass_ray_bounces;
-#endif
 
   /* viewport rendering options */
   int display_pass_offset;
@@ -1282,7 +1241,7 @@ typedef struct KernelFilm {
   int use_display_pass_alpha;
   int show_active_pixels;
 
-  int pad4, pad5, pad6;
+  int pad;
 } KernelFilm;
 static_assert_align(KernelFilm, 16);
 

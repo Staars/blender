@@ -225,19 +225,14 @@ void BlenderSync::sync_recalc(BL::Depsgraph &b_depsgraph, BL::SpaceView3D &b_v3d
   }
 
   if (b_v3d) {
-    BlenderViewportParameters new_viewport_parameters(b_v3d);
+    BlenderViewportParameters new_viewport_parameters(b_v3d, use_developer_ui);
 
-    if (viewport_parameters.modified(new_viewport_parameters)) {
+    if (viewport_parameters.shader_modified(new_viewport_parameters)) {
       world_recalc = true;
       has_updates_ = true;
     }
 
-    if (!has_updates_) {
-      Film *film = scene->film;
-
-      const PassType new_display_pass = BlenderViewportParameters::get_render_pass(b_v3d);
-      has_updates_ |= film->get_display_pass() != new_display_pass;
-    }
+    has_updates_ |= viewport_parameters.modified(new_viewport_parameters);
   }
 }
 
@@ -400,14 +395,9 @@ void BlenderSync::sync_film(BL::ViewLayer &b_view_layer, BL::SpaceView3D &b_v3d)
   Film *film = scene->film;
 
   if (b_v3d) {
-    film->set_display_pass(BlenderViewportParameters::get_render_pass(b_v3d));
-
-    if (use_developer_ui) {
-      film->set_show_active_pixels(BlenderViewportParameters::get_show_active_pixels(b_v3d));
-    }
-    else {
-      film->set_show_active_pixels(false);
-    }
+    const BlenderViewportParameters new_viewport_parameters(b_v3d, use_developer_ui);
+    film->set_display_pass(new_viewport_parameters.display_pass);
+    film->set_show_active_pixels(new_viewport_parameters.show_active_pixels);
   }
 
   film->set_exposure(get_float(cscene, "film_exposure"));
@@ -540,13 +530,6 @@ PassType BlenderSync::get_pass_type(BL::RenderPass &b_pass)
   MAP_PASS("BakePrimitive", PASS_BAKE_PRIMITIVE);
   MAP_PASS("BakeDifferential", PASS_BAKE_DIFFERENTIAL);
 
-#ifdef __KERNEL_DEBUG__
-  MAP_PASS("Debug BVH Traversed Nodes", PASS_BVH_TRAVERSED_NODES);
-  MAP_PASS("Debug BVH Traversed Instances", PASS_BVH_TRAVERSED_INSTANCES);
-  MAP_PASS("Debug BVH Intersections", PASS_BVH_INTERSECTIONS);
-  MAP_PASS("Debug Ray Bounces", PASS_RAY_BOUNCES);
-#endif
-
   MAP_PASS("Noisy Image", PASS_DENOISING_COLOR);
   MAP_PASS("Denoising Normal", PASS_DENOISING_NORMAL);
   MAP_PASS("Denoising Albedo", PASS_DENOISING_ALBEDO);
@@ -600,24 +583,6 @@ void BlenderSync::sync_render_passes(BL::RenderLayer &b_rlay, BL::ViewLayer &b_v
     Pass::add(PASS_DENOISING_COLOR, passes, "Noisy Image");
   }
 
-#ifdef __KERNEL_DEBUG__
-  if (get_boolean(crl, "pass_debug_bvh_traversed_nodes")) {
-    b_engine.add_pass("Debug BVH Traversed Nodes", 1, "X", b_view_layer.name().c_str());
-    Pass::add(PASS_BVH_TRAVERSED_NODES, passes, "Debug BVH Traversed Nodes");
-  }
-  if (get_boolean(crl, "pass_debug_bvh_traversed_instances")) {
-    b_engine.add_pass("Debug BVH Traversed Instances", 1, "X", b_view_layer.name().c_str());
-    Pass::add(PASS_BVH_TRAVERSED_INSTANCES, passes, "Debug BVH Traversed Instances");
-  }
-  if (get_boolean(crl, "pass_debug_bvh_intersections")) {
-    b_engine.add_pass("Debug BVH Intersections", 1, "X", b_view_layer.name().c_str());
-    Pass::add(PASS_BVH_INTERSECTIONS, passes, "Debug BVH Intersections");
-  }
-  if (get_boolean(crl, "pass_debug_ray_bounces")) {
-    b_engine.add_pass("Debug Ray Bounces", 1, "X", b_view_layer.name().c_str());
-    Pass::add(PASS_RAY_BOUNCES, passes, "Debug Ray Bounces");
-  }
-#endif
   if (get_boolean(crl, "pass_debug_render_time")) {
     b_engine.add_pass("Debug Render Time", 1, "X", b_view_layer.name().c_str());
     Pass::add(PASS_RENDER_TIME, passes, "Debug Render Time");

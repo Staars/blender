@@ -117,15 +117,20 @@ typedef struct IntegratorStateGPU {
 #undef KERNEL_STRUCT_END
 #undef KERNEL_STRUCT_END_ARRAY
 
-
 #ifdef __KERNEL_METAL__
+  /* Count number of queued kernels. */
   thread IntegratorQueueCounter *queue_counter;
-  thread int *sort_key_counter;
-#else
-  IntegratorQueueCounter *queue_counter;
-  int *sort_key_counter;
-#endif
 
+  /* Count number of kernels queued for specific shaders. */
+  thread int *sort_key_counter[DEVICE_KERNEL_INTEGRATOR_NUM];
+#else
+  /* Count number of queued kernels. */
+  IntegratorQueueCounter *queue_counter;
+
+  /* Count number of kernels queued for specific shaders. */
+  int *sort_key_counter[DEVICE_KERNEL_INTEGRATOR_NUM];
+#endif
+  
   /* Offset of a complementary shadow catcher state for the current main state. */
   int shadow_catcher_state_offset;
 } IntegratorStateGPU;

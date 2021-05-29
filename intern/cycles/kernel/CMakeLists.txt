@@ -386,10 +386,6 @@ if(WITH_CYCLES_CUDA_BINARIES)
       set(name ${name}_experimental)
     endif()
 
-    if(WITH_CYCLES_DEBUG)
-      set(cuda_flags ${cuda_flags} -D __KERNEL_DEBUG__)
-    endif()
-
     if(WITH_NANOVDB)
       set(cuda_flags ${cuda_flags}
         -D WITH_NANOVDB
@@ -498,11 +494,6 @@ if(WITH_CYCLES_DEVICE_OPTIX AND WITH_CYCLES_CUDA_BINARIES)
       --use_fast_math
       -o ${output})
 
-    if(WITH_CYCLES_DEBUG)
-      set(cuda_flags ${cuda_flags}
-        -D __KERNEL_DEBUG__)
-    endif()
-
     if(WITH_NANOVDB)
       set(cuda_flags ${cuda_flags}
         -D WITH_NANOVDB
@@ -571,7 +562,7 @@ if(WITH_CYCLES_DEVICE_OPTIX AND WITH_CYCLES_CUDA_BINARIES)
     delayed_install("${CMAKE_CURRENT_BINARY_DIR}" "${output}" ${CYCLES_INSTALL_PATH}/lib)
   endmacro()
 
-  CYCLES_OPTIX_KERNEL_ADD(kernel_optix "-D __NO_SHADER_RAYTRACE__")
+  CYCLES_OPTIX_KERNEL_ADD(kernel_optix "")
   CYCLES_OPTIX_KERNEL_ADD(kernel_optix_shader_raytrace "--keep-device-functions")
 
   add_custom_target(cycles_kernel_optix ALL DEPENDS ${optix_ptx})

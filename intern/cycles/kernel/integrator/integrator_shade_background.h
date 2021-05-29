@@ -59,7 +59,7 @@ ccl_device_noinline_cpu float3 integrator_eval_background_shader(
                                  INTEGRATOR_STATE(ray, P),
                                  INTEGRATOR_STATE(ray, D),
                                  INTEGRATOR_STATE(ray, time));
-    shader_eval_surface<NODE_FEATURE_MASK_LIGHT>(
+    shader_eval_surface<NODE_FEATURE_MASK_SURFACE_LIGHT>(
         INTEGRATOR_STATE_PASS, emission_sd, render_buffer, path_flag | PATH_RAY_EMISSION);
 
     L = shader_background_eval(emission_sd);
@@ -179,7 +179,7 @@ ccl_device void integrator_shade_background(INTEGRATOR_STATE_ARGS,
   integrate_background(INTEGRATOR_STATE_PASS, render_buffer);
 
   /* Path ends here. */
-  INTEGRATOR_PATH_TERMINATE(SHADE_BACKGROUND);
+  INTEGRATOR_PATH_TERMINATE(DEVICE_KERNEL_INTEGRATOR_SHADE_BACKGROUND);
 }
 
 CCL_NAMESPACE_END

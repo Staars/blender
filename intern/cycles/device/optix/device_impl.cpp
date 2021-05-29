@@ -87,8 +87,10 @@ OptiXDevice::OptiXDevice(const DeviceInfo &info, Stats &stats, Profiler &profile
     }
   };
 #  endif
-#  if OPTIX_ABI_VERSION >= 41 && defined(WITH_CYCLES_DEBUG)
-  options.validationMode = OPTIX_DEVICE_CONTEXT_VALIDATION_MODE_ALL;
+#  if OPTIX_ABI_VERSION >= 41
+  if (DebugFlags().optix.use_debug) {
+    options.validationMode = OPTIX_DEVICE_CONTEXT_VALIDATION_MODE_ALL;
+  }
 #  endif
   optix_assert(optixDeviceContextCreate(cuContext, &options, &context));
 #  ifdef WITH_CYCLES_LOGGING
@@ -160,11 +162,8 @@ string OptiXDevice::compile_kernel_get_common_cflags(
   }
 
   /* Specialization for shader raytracing. */
-  if (requested_features.use_shader_raytrace) {
+  if (requested_features.nodes_features & NODE_FEATURE_RAYTRACE) {
     common_cflags += " --keep-device-functions";
-  }
-  else {
-    common_cflags += " -D __NO_SHADER_RAYTRACE__";
   }
 
   return common_cflags;
@@ -190,7 +189,7 @@ bool OptiXDevice::load_kernels(const DeviceRequestedFeatures &requested_features
   }
 
   /* TODO: Shader raytracing requires OptiX to overwrite the shading kernels too! */
-  if (requested_features.use_shader_raytrace) {
+  if (requested_features.nodes_features & NODE_FEATURE_RAYTRACE) {
     set_error("AO and Bevel shader nodes are not currently supported with OptiX");
     return false;
   }
@@ -217,13 +216,15 @@ bool OptiXDevice::load_kernels(const DeviceRequestedFeatures &requested_features
 
   OptixModuleCompileOptions module_options = {};
   module_options.maxRegisterCount = 0; /* Do not set an explicit register limit. */
-#  ifdef WITH_CYCLES_DEBUG
-  module_options.optLevel = OPTIX_COMPILE_OPTIMIZATION_LEVEL_0;
-  module_options.debugLevel = OPTIX_COMPILE_DEBUG_LEVEL_FULL;
-#  else
-  module_options.optLevel = OPTIX_COMPILE_OPTIMIZATION_LEVEL_3;
-  module_options.debugLevel = OPTIX_COMPILE_DEBUG_LEVEL_LINEINFO;
-#  endif
+
+  if (DebugFlags().optix.use_debug) {
+    module_options.optLevel = OPTIX_COMPILE_OPTIMIZATION_LEVEL_0;
+    module_options.debugLevel = OPTIX_COMPILE_DEBUG_LEVEL_FULL;
+  }
+  else {
+    module_options.optLevel = OPTIX_COMPILE_OPTIMIZATION_LEVEL_3;
+    module_options.debugLevel = OPTIX_COMPILE_DEBUG_LEVEL_LINEINFO;
+  }
 
 #  if OPTIX_ABI_VERSION >= 41
   module_options.boundValues = nullptr;
@@ -243,7 +244,7 @@ bool OptiXDevice::load_kernels(const DeviceRequestedFeatures &requested_features
 #  if OPTIX_ABI_VERSION >= 36
   pipeline_options.usesPrimitiveTypeFlags = OPTIX_PRIMITIVE_TYPE_FLAGS_TRIANGLE;
   if (requested_features.use_hair) {
-    if (DebugFlags().optix.curves_api && requested_features.use_hair_thick) {
+    if (DebugFlags().optix.use_curves_api && requested_features.use_hair_thick) {
       pipeline_options.usesPrimitiveTypeFlags |= OPTIX_PRIMITIVE_TYPE_FLAGS_ROUND_CUBIC_BSPLINE;
     }
     else {
@@ -265,9 +266,10 @@ bool OptiXDevice::load_kernels(const DeviceRequestedFeatures &requested_features
   }
 
   { /* Load and compile PTX module with OptiX kernels. */
-    string ptx_data, ptx_filename = path_get(requested_features.use_shader_raytrace ?
-                                                 "lib/kernel_optix_shader_raytrace.ptx" :
-                                                 "lib/kernel_optix.ptx");
+    string ptx_data,
+        ptx_filename = path_get((requested_features.nodes_features & NODE_FEATURE_RAYTRACE) ?
+                                    "lib/kernel_optix_shader_raytrace.ptx" :
+                                    "lib/kernel_optix.ptx");
     if (use_adaptive_compilation() || path_file_size(ptx_filename) == -1) {
       if (!getenv("OPTIX_ROOT_DIR")) {
         set_error(
@@ -343,7 +345,7 @@ bool OptiXDevice::load_kernels(const DeviceRequestedFeatures &requested_features
     }
 
 #  if OPTIX_ABI_VERSION >= 36
-    if (DebugFlags().optix.curves_api && requested_features.use_hair_thick) {
+    if (DebugFlags().optix.use_curves_api && requested_features.use_hair_thick) {
       OptixBuiltinISOptions builtin_options = {};
       builtin_options.builtinISModuleType = OPTIX_PRIMITIVE_TYPE_ROUND_CUBIC_BSPLINE;
       builtin_options.usesMotionBlur = false;
@@ -371,7 +373,8 @@ bool OptiXDevice::load_kernels(const DeviceRequestedFeatures &requested_features
 #  endif
   }
 
-  if (requested_features.use_subsurface || requested_features.use_shader_raytrace) {
+  if (requested_features.use_subsurface ||
+      (requested_features.nodes_features & NODE_FEATURE_RAYTRACE)) {
     /* Add hit group for local intersections. */
     group_descs[PG_HITL].kind = OPTIX_PROGRAM_GROUP_KIND_HITGROUP;
     group_descs[PG_HITL].hitgroup.moduleAH = optix_module;
@@ -379,7 +382,7 @@ bool OptiXDevice::load_kernels(const DeviceRequestedFeatures &requested_features
   }
 
   /* Shader raytracing replaces some functions with direct callables. */
-  if (requested_features.use_shader_raytrace) {
+  if (requested_features.nodes_features & NODE_FEATURE_RAYTRACE) {
     group_descs[PG_CALL + 0].kind = OPTIX_PROGRAM_GROUP_KIND_CALLABLES;
     group_descs[PG_CALL + 0].callables.moduleDC = optix_module;
     group_descs[PG_CALL + 0].callables.entryFunctionNameDC = "__direct_callable__svm_eval_nodes";
@@ -422,11 +425,14 @@ bool OptiXDevice::load_kernels(const DeviceRequestedFeatures &requested_features
 
   OptixPipelineLinkOptions link_options = {};
   link_options.maxTraceDepth = 1;
-#  ifdef WITH_CYCLES_DEBUG
-  link_options.debugLevel = OPTIX_COMPILE_DEBUG_LEVEL_FULL;
-#  else
-  link_options.debugLevel = OPTIX_COMPILE_DEBUG_LEVEL_LINEINFO;
-#  endif
+
+  if (DebugFlags().optix.use_debug) {
+    link_options.debugLevel = OPTIX_COMPILE_DEBUG_LEVEL_FULL;
+  }
+  else {
+    link_options.debugLevel = OPTIX_COMPILE_DEBUG_LEVEL_LINEINFO;
+  }
+
 #  if OPTIX_ABI_VERSION < 24
   link_options.overrideUsesMotionBlur = motion_blur;
 #  endif
@@ -932,7 +938,7 @@ void OptiXDevice::build_bvh(BVH *bvh, Progress &progress, bool refit)
       device_vector<float4> vertex_data(this, "optix temp vertex data", MEM_READ_ONLY);
       /* Four control points for each curve segment. */
       const size_t num_vertices = num_segments * 4;
-      if (DebugFlags().optix.curves_api && hair->curve_shape == CURVE_THICK) {
+      if (DebugFlags().optix.use_curves_api && hair->curve_shape == CURVE_THICK) {
         index_data.alloc(num_segments);
         vertex_data.alloc(num_vertices * num_motion_steps);
       }
@@ -959,7 +965,7 @@ void OptiXDevice::build_bvh(BVH *bvh, Progress &progress, bool refit)
 
           for (int segment = 0; segment < curve.num_segments(); ++segment, ++i) {
 #  if OPTIX_ABI_VERSION >= 36
-            if (DebugFlags().optix.curves_api && hair->curve_shape == CURVE_THICK) {
+            if (DebugFlags().optix.use_curves_api && hair->curve_shape == CURVE_THICK) {
               int k0 = curve.first_key + segment;
               int k1 = k0 + 1;
               int ka = max(k0 - 1, curve.first_key);
@@ -1035,7 +1041,7 @@ void OptiXDevice::build_bvh(BVH *bvh, Progress &progress, bool refit)
       unsigned int build_flags = OPTIX_GEOMETRY_FLAG_REQUIRE_SINGLE_ANYHIT_CALL;
       OptixBuildInput build_input = {};
 #  if OPTIX_ABI_VERSION >= 36
-      if (DebugFlags().optix.curves_api && hair->curve_shape == CURVE_THICK) {
+      if (DebugFlags().optix.use_curves_api && hair->curve_shape == CURVE_THICK) {
         build_input.type = OPTIX_BUILD_INPUT_TYPE_CURVES;
         build_input.curveArray.curveType = OPTIX_PRIMITIVE_TYPE_ROUND_CUBIC_BSPLINE;
         build_input.curveArray.numPrimitives = num_segments;
@@ -1239,7 +1245,7 @@ void OptiXDevice::build_bvh(BVH *bvh, Progress &progress, bool refit)
 
 #  if OPTIX_ABI_VERSION >= 36
         if (motion_blur && ob->get_geometry()->has_motion_blur() &&
-            DebugFlags().optix.curves_api &&
+            DebugFlags().optix.use_curves_api &&
             static_cast<const Hair *>(ob->get_geometry())->curve_shape == CURVE_THICK) {
           /* Select between motion blur and non-motion blur built-in intersection module. */
           instance.sbtOffset = PG_HITD_MOTION - PG_HITD;
