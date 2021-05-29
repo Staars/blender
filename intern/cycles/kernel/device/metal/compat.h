@@ -176,6 +176,8 @@
 #include <metal_stdlib>
 #include <metal_geometric>
 #include <metal_integer>
+#include <metal_atomic>
+
 using metal::fast::min;
 using metal::fast::max;
 using metal::fast::clamp;

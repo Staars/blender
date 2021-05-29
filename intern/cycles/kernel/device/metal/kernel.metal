@@ -24,6 +24,10 @@
 #  include "kernel/device/metal/parallel_prefix_sum.h"
 #  include "kernel/device/metal/parallel_sorted_index.h"
 
+#  include "kernel/integrator/integrator_state.h"
+#  include "kernel/integrator/integrator_state_flow.h"
+#  include "kernel/integrator/integrator_state_util.h"
+
 
 
 #endif

@@ -113,7 +113,6 @@ ccl_device_inline float atomic_compare_and_swap_float(volatile float *dest,
 #  endif /* __KERNEL_CUDA__ */
 
 #  if defined(__KERNEL_METAL__)
-#include <metal_atomic>
 
 /* Float atomics implementation credits:
  *   http://suhorukov.blogspot.in/2011/12/opencl-11-atomic-operations-on-floating.html
@@ -153,7 +152,7 @@ ccl_device_inline float atomic_compare_and_swap_float(threadgroup volatile ccl_g
   return result.float_value;
 }
 
-#    define atomic_fetch_and_add_uint32(p, x) atomic_fetch_add_explicit((volatile threadgroup metal::atomic_uint *)(p), (x), metal::memory_order_relaxed)
+#    define atomic_fetch_and_add_uint32(p, x) p //TODO: Fix this!!
 #    define atomic_fetch_and_inc_uint32(p) atomic_fetch_add_explicit((p), (1), metal::memory_order_relaxed)
 #    define atomic_fetch_and_dec_uint32(p) atomic_fetch_sub_explicit((p), (1), metal::memory_order_relaxed)
 #    define atomic_fetch_and_or_uint32(p, x) atomic_fetch_or_explicit((p), (x), metal::memory_order_relaxed)

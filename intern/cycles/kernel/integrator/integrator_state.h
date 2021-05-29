@@ -176,8 +176,11 @@ typedef struct IntegratorStateGPU {
 #else /* __KERNEL_CPU__ */
 
 /* Array access on GPU with Structure-of-Arrays. */
-
+#if !defined(__KERNEL_METAL__)
 #  define INTEGRATOR_STATE_ARGS const KernelGlobals *ccl_restrict kg, const int path_index
+#else
+#  define INTEGRATOR_STATE_ARGS thread const KernelGlobals *ccl_restrict kg, thread const int path_index
+#endif /* __KERNEL_METAL__ */
 #  define INTEGRATOR_STATE_CONST_ARGS const KernelGlobals *ccl_restrict kg, const int path_index
 #  define INTEGRATOR_STATE_PASS kg, path_index
 

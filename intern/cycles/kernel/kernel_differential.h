@@ -20,12 +20,21 @@ CCL_NAMESPACE_BEGIN
 
 /* See "Tracing Ray Differentials", Homan Igehy, 1999. */
 
+#if !defined(__KERNEL_METAL__)
 ccl_device void differential_transfer(ccl_addr_space differential3 *surface_dP,
                                       const differential3 ray_dP,
                                       float3 ray_D,
                                       const differential3 ray_dD,
                                       float3 surface_Ng,
                                       float ray_t)
+#else
+ccl_device void differential_transfer(thread ccl_addr_space differential3 *surface_dP,
+                                      const differential3 ray_dP,
+                                      float3 ray_D,
+                                      const differential3 ray_dD,
+                                      float3 surface_Ng,
+                                      float ray_t)
+#endif
 {
   /* ray differential transfer through homogeneous medium, to
    * compute dPdx/dy at a shading point from the incoming ray */
@@ -37,8 +46,11 @@ ccl_device void differential_transfer(ccl_addr_space differential3 *surface_dP,
   surface_dP->dx = tmpx - dot(tmpx, surface_Ng) * tmp;
   surface_dP->dy = tmpy - dot(tmpy, surface_Ng) * tmp;
 }
-
+#if !defined(__KERNEL_METAL__)
 ccl_device void differential_incoming(ccl_addr_space differential3 *dI, const differential3 dD)
+#else
+ccl_device void differential_incoming(thread ccl_addr_space differential3 *dI, const differential3 dD)
+#endif
 {
   /* compute dIdx/dy at a shading point, we just need to negate the
    * differential of the ray direction */
@@ -47,12 +59,21 @@ ccl_device void differential_incoming(ccl_addr_space differential3 *dI, const di
   dI->dy = -dD.dy;
 }
 
+#if !defined(__KERNEL_METAL__)
 ccl_device void differential_dudv(ccl_addr_space differential *du,
                                   ccl_addr_space differential *dv,
                                   float3 dPdu,
                                   float3 dPdv,
                                   differential3 dP,
                                   float3 Ng)
+#else
+ccl_device void differential_dudv(thread ccl_addr_space differential *du,
+                                  thread ccl_addr_space differential *dv,
+                                  float3 dPdu,
+                                  float3 dPdv,
+                                  differential3 dP,
+                                  float3 Ng)
+#endif
 {
   /* now we have dPdx/dy from the ray differential transfer, and dPdu/dv
    * from the primitive, we can compute dudx/dy and dvdx/dy. these are
@@ -132,12 +153,21 @@ ccl_device_forceinline float differential_make_compact(const differential3 D)
   return 0.5f * (len(D.dx) + len(D.dy));
 }
 
+#if !defined(__KERNEL_METAL__)
 ccl_device_forceinline void differential_transfer_compact(ccl_addr_space differential3 *surface_dP,
                                                           const float ray_dP,
                                                           const float3 /* ray_D */,
                                                           const float ray_dD,
                                                           const float3 surface_Ng,
                                                           const float ray_t)
+#else
+ccl_device_forceinline void differential_transfer_compact(thread ccl_addr_space differential3 *surface_dP,
+                                                          const float ray_dP,
+                                                          const float3 /* ray_D */,
+                                                          const float ray_dD,
+                                                          const float3 surface_Ng,
+                                                          const float ray_t)
+#endif
 {
   /* ray differential transfer through homogeneous medium, to
    * compute dPdx/dy at a shading point from the incoming ray */
@@ -149,9 +179,15 @@ ccl_device_forceinline void differential_transfer_compact(ccl_addr_space differe
   surface_dP->dy = dy * scale;
 }
 
+#if !defined(__KERNEL_METAL__)
 ccl_device_forceinline void differential_incoming_compact(ccl_addr_space differential3 *dI,
                                                           const float3 D,
                                                           const float dD)
+#else
+ccl_device_forceinline void differential_incoming_compact(thread ccl_addr_space differential3 *dI,
+                                                          const float3 D,
+                                                          const float dD)
+#endif
 {
   /* compute dIdx/dy at a shading point, we just need to negate the
    * differential of the ray direction */

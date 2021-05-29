@@ -23,8 +23,13 @@ CCL_NAMESPACE_BEGIN
 
 /* Ray */
 
+#if !defined(__KERNEL_METAL__)
 ccl_device_forceinline void integrator_state_write_ray(INTEGRATOR_STATE_ARGS,
                                                        const Ray *ccl_restrict ray)
+#else
+ccl_device_forceinline void integrator_state_write_ray(INTEGRATOR_STATE_ARGS,
+                                                       thread const Ray *ccl_restrict ray)
+#endif
 {
   INTEGRATOR_STATE_WRITE(ray, P) = ray->P;
   INTEGRATOR_STATE_WRITE(ray, D) = ray->D;
@@ -34,8 +39,13 @@ ccl_device_forceinline void integrator_state_write_ray(INTEGRATOR_STATE_ARGS,
   INTEGRATOR_STATE_WRITE(ray, dD) = ray->dD;
 }
 
+#if !defined(__KERNEL_METAL__)
 ccl_device_forceinline void integrator_state_read_ray(INTEGRATOR_STATE_CONST_ARGS,
                                                       Ray *ccl_restrict ray)
+#else
+ccl_device_forceinline void integrator_state_read_ray(thread INTEGRATOR_STATE_CONST_ARGS,
+                                                       thread Ray *ccl_restrict ray)
+#endif
 {
   ray->P = INTEGRATOR_STATE(ray, P);
   ray->D = INTEGRATOR_STATE(ray, D);
@@ -46,9 +56,13 @@ ccl_device_forceinline void integrator_state_read_ray(INTEGRATOR_STATE_CONST_ARG
 }
 
 /* Shadow Ray */
-
+#if !defined(__KERNEL_METAL__)
 ccl_device_forceinline void integrator_state_write_shadow_ray(INTEGRATOR_STATE_ARGS,
                                                               const Ray *ccl_restrict ray)
+#else
+ccl_device_forceinline void integrator_state_write_shadow_ray(thread INTEGRATOR_STATE_ARGS,
+                                                              thread const Ray *ccl_restrict ray)
+#endif
 {
   INTEGRATOR_STATE_WRITE(shadow_ray, P) = ray->P;
   INTEGRATOR_STATE_WRITE(shadow_ray, D) = ray->D;
@@ -56,8 +70,13 @@ ccl_device_forceinline void integrator_state_write_shadow_ray(INTEGRATOR_STATE_A
   INTEGRATOR_STATE_WRITE(shadow_ray, time) = ray->time;
 }
 
+#if !defined(__KERNEL_METAL__)
 ccl_device_forceinline void integrator_state_read_shadow_ray(INTEGRATOR_STATE_CONST_ARGS,
                                                              Ray *ccl_restrict ray)
+#else
+ccl_device_forceinline void integrator_state_read_shadow_ray(thread INTEGRATOR_STATE_CONST_ARGS,
+                                                             thread Ray *ccl_restrict ray)
+#endif
 {
   ray->P = INTEGRATOR_STATE(shadow_ray, P);
   ray->D = INTEGRATOR_STATE(shadow_ray, D);
@@ -69,8 +88,13 @@ ccl_device_forceinline void integrator_state_read_shadow_ray(INTEGRATOR_STATE_CO
 
 /* Intersection */
 
+#if !defined(__KERNEL_METAL__)
 ccl_device_forceinline void integrator_state_write_isect(INTEGRATOR_STATE_ARGS,
                                                          const Intersection *ccl_restrict isect)
+#else
+ccl_device_forceinline void integrator_state_write_isect(thread INTEGRATOR_STATE_ARGS,
+                                                         thread const Intersection *ccl_restrict isect)
+#endif
 {
   INTEGRATOR_STATE_WRITE(isect, t) = isect->t;
   INTEGRATOR_STATE_WRITE(isect, u) = isect->u;
@@ -83,8 +107,13 @@ ccl_device_forceinline void integrator_state_write_isect(INTEGRATOR_STATE_ARGS,
 #endif
 }
 
+#if !defined(__KERNEL_METAL__)
 ccl_device_forceinline void integrator_state_read_isect(INTEGRATOR_STATE_CONST_ARGS,
                                                         Intersection *ccl_restrict isect)
+#else
+ccl_device_forceinline void integrator_state_read_isect(thread INTEGRATOR_STATE_CONST_ARGS,
+                                                        thread Intersection *ccl_restrict isect)
+#endif
 {
   isect->prim = INTEGRATOR_STATE(isect, prim);
   isect->object = INTEGRATOR_STATE(isect, object);
@@ -98,9 +127,14 @@ ccl_device_forceinline void integrator_state_read_isect(INTEGRATOR_STATE_CONST_A
 }
 
 /* Shadow Intersection */
-
+#if !defined(__KERNEL_METAL__)
 ccl_device_forceinline void integrator_state_write_shadow_isect(
     INTEGRATOR_STATE_ARGS, const Intersection *ccl_restrict isect, const int index)
+#else
+ccl_device_forceinline void integrator_state_write_shadow_isect(
+    thread INTEGRATOR_STATE_ARGS, thread const Intersection *ccl_restrict isect, const int index)
+
+#endif
 {
   INTEGRATOR_STATE_ARRAY_WRITE(shadow_isect, index, t) = isect->t;
   INTEGRATOR_STATE_ARRAY_WRITE(shadow_isect, index, u) = isect->u;
@@ -113,9 +147,15 @@ ccl_device_forceinline void integrator_state_write_shadow_isect(
 #endif
 }
 
+#if !defined(__KERNEL_METAL__)
 ccl_device_forceinline void integrator_state_read_shadow_isect(INTEGRATOR_STATE_CONST_ARGS,
                                                                Intersection *ccl_restrict isect,
                                                                const int index)
+#else
+ccl_device_forceinline void integrator_state_read_shadow_isect(thread INTEGRATOR_STATE_CONST_ARGS,
+                                                              thread Intersection *ccl_restrict isect,
+                                                               const int index)
+#endif
 {
   isect->prim = INTEGRATOR_STATE_ARRAY(shadow_isect, index, prim);
   isect->object = INTEGRATOR_STATE_ARRAY(shadow_isect, index, object);

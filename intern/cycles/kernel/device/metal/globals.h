@@ -39,6 +39,6 @@ struct KernelGlobals {
 #define kernel_tex_fetch(tex, index) (kg->tex.fetch(index))
 #define kernel_tex_array(tex) (kg->tex.data)
 #define kernel_data (kg->__data)
-#define kernel_integrator_state __integrator_state
+#define kernel_integrator_state (kg->__integrator_state)
 
 CCL_NAMESPACE_END

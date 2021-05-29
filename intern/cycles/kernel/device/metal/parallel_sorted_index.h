@@ -42,7 +42,8 @@ __device__ void metal_parallel_sorted_index_array(const uint num_states,
                                                METAL_PARALLEL_SORTED_INDEX_INACTIVE_KEY;
 
   if (key != METAL_PARALLEL_SORTED_INDEX_INACTIVE_KEY) {
-    const uint index = atomic_fetch_and_add_uint32(&key_prefix_sum[key], 1);
+//    const uint index = atomic_fetch_and_add_uint32(&key_prefix_sum[key], 1);
+    const uint index = atomic_fetch_add_explicit((threadgroup ccl_global metal::atomic_uint *)&key_prefix_sum[key], 1, metal::memory_order_relaxed);
     indices[index] = state_index;
   }
 }
