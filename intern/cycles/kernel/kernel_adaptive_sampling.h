@@ -38,8 +38,11 @@ ccl_device_forceinline bool kernel_need_sample_pixel(INTEGRATOR_STATE_CONST_ARGS
 }
 
 /* Determines whether to continue sampling a given pixel or if it has sufficiently converged. */
-
+#  if !defined(__KERNEL_METAL__)
 ccl_device bool kernel_adaptive_sampling_convergence_check(const KernelGlobals *kg,
+#  else
+ccl_device bool kernel_adaptive_sampling_convergence_check(device const KernelGlobals *kg,
+#  endif
                                                            ccl_global float *render_buffer,
                                                            int x,
                                                            int y,
@@ -85,7 +88,11 @@ ccl_device bool kernel_adaptive_sampling_convergence_check(const KernelGlobals *
 /* This is a simple box filter in two passes.
  * When a pixel demands more adaptive samples, let its neighboring pixels draw more samples too. */
 
+#  if !defined(__KERNEL_METAL__)
 ccl_device void kernel_adaptive_sampling_filter_x(const KernelGlobals *kg,
+#  else
+ccl_device void kernel_adaptive_sampling_filter_x(device const KernelGlobals *kg,
+#endif
                                                   ccl_global float *render_buffer,
                                                   int y,
                                                   int start_x,
@@ -119,7 +126,11 @@ ccl_device void kernel_adaptive_sampling_filter_x(const KernelGlobals *kg,
   }
 }
 
+#  if !defined(__KERNEL_METAL__)
 ccl_device void kernel_adaptive_sampling_filter_y(const KernelGlobals *kg,
+#  else
+ccl_device void kernel_adaptive_sampling_filter_y(device const KernelGlobals *kg,
+#  endif
                                                   ccl_global float *render_buffer,
                                                   int x,
                                                   int start_y,

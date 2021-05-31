@@ -130,7 +130,11 @@ ccl_device_inline float cmj_randfloat(uint i, uint p)
   return cmj_hash(i, p) * (1.0f / 4294967808.0f);
 }
 
+#  if !defined(__KERNEL_METAL__)
 ccl_device float pmj_sample_1D(const KernelGlobals *kg, int sample, int rng_hash, int dimension)
+#  else
+ccl_device float pmj_sample_1D(device const KernelGlobals *kg, int sample, int rng_hash, int dimension)
+#  endif
 {
   /* Fallback to random */
   if (sample >= NUM_PMJ_SAMPLES) {
@@ -144,7 +148,11 @@ ccl_device float pmj_sample_1D(const KernelGlobals *kg, int sample, int rng_hash
   }
 }
 
+#  if !defined(__KERNEL_METAL__)
 ccl_device float2 pmj_sample_2D(const KernelGlobals *kg, int sample, int rng_hash, int dimension)
+#  else
+ccl_device float2 pmj_sample_2D(device const KernelGlobals *kg, int sample, int rng_hash, int dimension)
+#  endif
 {
   if (sample >= NUM_PMJ_SAMPLES) {
     const int p = rng_hash + dimension;

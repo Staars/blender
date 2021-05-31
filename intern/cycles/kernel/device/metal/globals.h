@@ -25,20 +25,22 @@
 
 CCL_NAMESPACE_BEGIN
 
-/* Not actually used, just a NULL pointer that gets passed everywhere, which we
- * hope gets optimized out by the compiler. */
+#define KERNEL_TEX(type, name) typedef type name##_t;
+#include "kernel/kernel_textures.h"
+
 struct KernelGlobals {
   int unused[1]; //TODO: maybe unnecessary
 #define KERNEL_TEX(type, name) type name;
 #include "kernel/kernel_textures.h"
-  KernelData __data;
+  device KernelData *data;
   IntegratorStateGPU __integrator_state;
 };
 
 /* Abstraction macros */
-#define kernel_tex_fetch(tex, index) (kg->tex.fetch(index))
-#define kernel_tex_array(tex) (kg->tex.data)
-#define kernel_data (kg->__data)
+#define kernel_data (*kg->data)
+#define kernel_tex_array(tex) \
+  ((const ccl_global tex##_t *)(kg->buffers[kg->tex.cl_buffer] + kg->tex.data))
+#define kernel_tex_fetch(tex, index) kernel_tex_array(tex)[(index)]
 #define kernel_integrator_state (kg->__integrator_state)
 
 CCL_NAMESPACE_END

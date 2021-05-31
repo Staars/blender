@@ -23,11 +23,19 @@ CCL_NAMESPACE_BEGIN
  */
 
 /* Map global work index to tile, pixel X/Y and sample. */
+#ifndef __KERNEL_METAL__
 ccl_device_inline void get_work_pixel(ccl_global const KernelWorkTile *tile,
                                       uint global_work_index,
                                       ccl_private uint *x,
                                       ccl_private uint *y,
                                       ccl_private uint *sample)
+#  else
+ccl_device_inline void get_work_pixel(threadgroup const KernelWorkTile *tile,
+                                      uint global_work_index,
+                                      thread uint *x,
+                                      thread uint *y,
+                                      thread uint *sample)
+#  endif
 {
 #ifdef __KERNEL_CUDA__
   /* Keeping threads for the same pixel together improves performance on CUDA. */
@@ -52,11 +60,19 @@ ccl_device_inline void get_work_pixel(ccl_global const KernelWorkTile *tile,
 
 #ifdef __SPLIT_KERNEL__
 /* Returns true if there is work */
+#ifndef __KERNEL_METAL__
 ccl_device bool get_next_work_item(const KernelGlobals *kg,
                                    ccl_global uint *work_pools,
                                    uint total_work_size,
                                    uint ray_index,
                                    ccl_private uint *global_work_index)
+#  else
+ccl_device bool get_next_work_item(device const KernelGlobals *kg,
+                                   device uint *work_pools,
+                                   uint total_work_size,
+                                   uint ray_index,
+                                   thread uint *global_work_index)
+#  endif
 {
   /* With a small amount of work there may be more threads than work due to
    * rounding up of global size, stop such threads immediately. */

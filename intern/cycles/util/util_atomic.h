@@ -117,7 +117,7 @@ ccl_device_inline float atomic_compare_and_swap_float(volatile float *dest,
 /* Float atomics implementation credits:
  *   http://suhorukov.blogspot.in/2011/12/opencl-11-atomic-operations-on-floating.html
  */
-ccl_device_inline float atomic_add_and_fetch_float(threadgroup volatile ccl_global float *source,
+ccl_device_inline float atomic_add_and_fetch_float(volatile ccl_global float *source,
                                                    const float operand)
 {
   union {
@@ -131,13 +131,13 @@ ccl_device_inline float atomic_add_and_fetch_float(threadgroup volatile ccl_glob
   do {
     prev_value.float_value = *source;
     new_value.float_value = prev_value.float_value + operand;
-  } while (atomic_compare_exchange_weak_explicit((volatile threadgroup ccl_global metal::atomic_uint *)source,
+  } while (atomic_compare_exchange_weak_explicit((volatile ccl_global metal::atomic_uint *)source,
                           &prev_value.int_value,
                           new_value.int_value, metal::memory_order_relaxed, metal::memory_order_relaxed) != prev_value.int_value);
   return new_value.float_value;
 }
 
-ccl_device_inline float atomic_compare_and_swap_float(threadgroup volatile ccl_global float *dest,
+ccl_device_inline float atomic_compare_and_swap_float(volatile ccl_global float *dest,
                                                       const float old_val,
                                                       const float new_val)
 {
@@ -148,11 +148,11 @@ ccl_device_inline float atomic_compare_and_swap_float(threadgroup volatile ccl_g
   prev_value.float_value = old_val;
   new_value.float_value = new_val;
   result.int_value = atomic_compare_exchange_weak_explicit(
-      (volatile threadgroup ccl_global metal::atomic_uint *)dest, &prev_value.int_value, new_value.int_value, metal::memory_order_relaxed, metal::memory_order_relaxed);
+      (volatile ccl_global metal::atomic_uint *)dest, &prev_value.int_value, new_value.int_value, metal::memory_order_relaxed, metal::memory_order_relaxed);
   return result.float_value;
 }
 
-#    define atomic_fetch_and_add_uint32(p, x) p //TODO: Fix this!!
+#    define atomic_fetch_and_add_uint32(p, x) ; //TODO: Fix this!!
 #    define atomic_fetch_and_inc_uint32(p) atomic_fetch_add_explicit((p), (1), metal::memory_order_relaxed)
 #    define atomic_fetch_and_dec_uint32(p) atomic_fetch_sub_explicit((p), (1), metal::memory_order_relaxed)
 #    define atomic_fetch_and_or_uint32(p, x) atomic_fetch_or_explicit((p), (x), metal::memory_order_relaxed)

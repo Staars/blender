@@ -486,7 +486,7 @@ ccl_device_inline void transform_compose(Transform *tfm, const DecomposedTransfo
 /* Interpolate from array of decomposed transforms. */
 #ifdef __KERNEL_METAL__
 ccl_device void transform_motion_array_interpolate(thread Transform *tfm,
-                                                   thread const ccl_global DecomposedTransform *motion,
+                                                   const ccl_global DecomposedTransform *motion,
                                                    uint numsteps,
                                                    float time)
 #else
@@ -500,16 +500,10 @@ ccl_device void transform_motion_array_interpolate(Transform *tfm,
   int maxstep = numsteps - 1;
   int step = min((int)(time * maxstep), maxstep - 1);
   float t = time * maxstep - step;
-
   
-#ifdef __KERNEL_METAL__
-  thread const ccl_global DecomposedTransform *a = motion + step;
-  thread const ccl_global DecomposedTransform *b = motion + step + 1;
-#else
   const ccl_global DecomposedTransform *a = motion + step;
   const ccl_global DecomposedTransform *b = motion + step + 1;
-#endif
-
+  
   /* Interpolate rotation, translation and scale. */
   DecomposedTransform decomp;
   decomp.x = quat_interpolate(a->x, b->x, t);

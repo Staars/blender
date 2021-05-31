@@ -67,20 +67,19 @@
 //#endif
 #define ccl_device_noinline __device__ __noinline__
 #define ccl_device_noinline_cpu ccl_device
-#define ccl_global
+#define ccl_global device
 #define ccl_static_constant __constant__
 #define ccl_device_constant __constant__ __device__
-#define ccl_constant const
-#define ccl_local __shared__
+#define ccl_constant
+#define ccl_local
 #define ccl_local_param
 #define ccl_private
 #define ccl_may_alias
 #define ccl_addr_space
 #define ccl_restrict __restrict__
 #define ccl_loop_no_unroll
-/* TODO(sergey): In theory we might use references with METAL, however
- * performance impact yet to be investigated.
- */
+
+
 #define ccl_ref
 #define ccl_align(n) /*__align__(n)*/
 #define ccl_optional_struct_init
