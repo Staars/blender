@@ -207,8 +207,21 @@ extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
 
   if (global_index < work_size) {
     const int path_index = (path_index_array) ? path_index_array[global_index] : global_index;
-    integrator_shade_surface<NODE_FEATURE_MASK_SURFACE & ~NODE_FEATURE_RAYTRACE>(
-        NULL, path_index, render_buffer);
+    integrator_shade_surface(NULL, path_index, render_buffer);
+  }
+}
+
+extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
+                                              CUDA_KERNEL_MAX_REGISTERS)
+    kernel_cuda_integrator_shade_surface_raytrace(const int *path_index_array,
+                                                  float *render_buffer,
+                                                  const int work_size)
+{
+  const int global_index = ccl_global_id(0);
+
+  if (global_index < work_size) {
+    const int path_index = (path_index_array) ? path_index_array[global_index] : global_index;
+    integrator_shade_surface_raytrace(NULL, path_index, render_buffer);
   }
 }
 
@@ -251,10 +264,7 @@ extern "C" __global__ void __launch_bounds__(CUDA_PARALLEL_ACTIVE_INDEX_DEFAULT_
 }
 
 extern "C" __global__ void __launch_bounds__(CUDA_PARALLEL_ACTIVE_INDEX_DEFAULT_BLOCK_SIZE)
-    kernel_cuda_integrator_active_paths_array(int num_states,
-                                              int *indices,
-                                              int *num_indices,
-                                              int unused_kernel)
+    kernel_cuda_integrator_active_paths_array(int num_states, int *indices, int *num_indices)
 {
   cuda_parallel_active_index_array<CUDA_PARALLEL_ACTIVE_INDEX_DEFAULT_BLOCK_SIZE>(
       num_states, indices, num_indices, [](const int path_index) {
@@ -267,10 +277,10 @@ extern "C" __global__ void __launch_bounds__(CUDA_PARALLEL_ACTIVE_INDEX_DEFAULT_
     kernel_cuda_integrator_terminated_paths_array(int num_states,
                                                   int *indices,
                                                   int *num_indices,
-                                                  int unused_kernel)
+                                                  int indices_offset)
 {
   cuda_parallel_active_index_array<CUDA_PARALLEL_ACTIVE_INDEX_DEFAULT_BLOCK_SIZE>(
-      num_states, indices, num_indices, [](const int path_index) {
+      num_states, indices + indices_offset, num_indices, [](const int path_index) {
         if (kernel_data.integrator.has_shadow_catcher) {
           /* NOTE: The kernel invocation limits number of states checked, ensuring that only
            * non-shadow-catcher states are checked here. */
@@ -296,6 +306,36 @@ extern "C" __global__ void __launch_bounds__(CUDA_PARALLEL_SORTED_INDEX_DEFAULT_
                    INTEGRATOR_STATE(path, shader_sort_key) :
                    CUDA_PARALLEL_SORTED_INDEX_INACTIVE_KEY;
       });
+}
+
+extern "C" __global__ void __launch_bounds__(CUDA_PARALLEL_ACTIVE_INDEX_DEFAULT_BLOCK_SIZE)
+    kernel_cuda_integrator_compact_paths_array(int num_states,
+                                               int *indices,
+                                               int *num_indices,
+                                               int num_active_paths)
+{
+  cuda_parallel_active_index_array<CUDA_PARALLEL_ACTIVE_INDEX_DEFAULT_BLOCK_SIZE>(
+      num_states, indices, num_indices, [num_active_paths](const int path_index) {
+        return (path_index >= num_active_paths) &&
+               ((INTEGRATOR_STATE(path, queued_kernel) != 0) ||
+                (INTEGRATOR_STATE(shadow_path, queued_kernel) != 0));
+      });
+}
+
+extern "C" __global__ void __launch_bounds__(CUDA_PARALLEL_SORTED_INDEX_DEFAULT_BLOCK_SIZE)
+    kernel_cuda_integrator_compact_states(const int *active_terminated_states,
+                                          const int active_states_offset,
+                                          const int terminated_states_offset,
+                                          const int work_size)
+{
+  const int global_index = ccl_global_id(0);
+
+  if (global_index < work_size) {
+    const int from_path_index = active_terminated_states[active_states_offset + global_index];
+    const int to_path_index = active_terminated_states[terminated_states_offset + global_index];
+
+    integrator_state_move(to_path_index, from_path_index);
+  }
 }
 
 extern "C" __global__ void __launch_bounds__(CUDA_PARALLEL_PREFIX_SUM_DEFAULT_BLOCK_SIZE)
@@ -367,29 +407,136 @@ extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
  * Film.
  */
 
-/* Convert to Display Buffer */
-
-extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS,
-                                              CUDA_KERNEL_MAX_REGISTERS)
-    kernel_cuda_convert_to_half_float(uchar4 *rgba,
-                                      float *render_buffer,
-                                      float sample_scale,
-                                      int sx,
-                                      int sy,
-                                      int sw,
-                                      int sh,
-                                      int offset,
-                                      int stride)
+/* Common implementation for half4 destination and 4-channel input pass. */
+template<typename Processor>
+ccl_device_inline void kernel_cuda_film_convert_half_rgba_common_rgba(
+    const KernelFilmConvert *kfilm_convert,
+    uchar4 *rgba,
+    float *render_buffer,
+    int num_pixels,
+    int offset,
+    int stride,
+    const Processor &processor)
 {
-  const int work_index = ccl_global_id(0);
-  const int y = work_index / sw;
-  const int x = work_index - y * sw;
-
-  if (x < sw && y < sh) {
-    kernel_film_convert_to_half_float(
-        NULL, rgba, render_buffer, sample_scale, sx + x, sy + y, offset, stride);
+  const int render_pixel_index = ccl_global_id(0);
+  if (render_pixel_index >= num_pixels) {
+    return;
   }
+
+  const uint64_t render_buffer_offset = (uint64_t)render_pixel_index * kfilm_convert->pass_stride;
+  ccl_global const float *buffer = render_buffer + render_buffer_offset;
+
+  float pixel[4];
+  processor(kfilm_convert, buffer, pixel);
+
+  film_apply_pass_pixel_overlays_rgba(kfilm_convert, buffer, pixel);
+
+  ccl_global half *out = (ccl_global half *)rgba + render_pixel_index * 4;
+  float4_store_half(out, make_float4(pixel[0], pixel[1], pixel[2], pixel[3]));
 }
+
+/* Common implementation for half4 destination and 3-channel input pass. */
+template<typename Processor>
+ccl_device_inline void kernel_cuda_film_convert_half_rgba_common_rgb(
+    const KernelFilmConvert *kfilm_convert,
+    uchar4 *rgba,
+    float *render_buffer,
+    int num_pixels,
+    int offset,
+    int stride,
+    const Processor &processor)
+{
+  kernel_cuda_film_convert_half_rgba_common_rgba(
+      kfilm_convert,
+      rgba,
+      render_buffer,
+      num_pixels,
+      offset,
+      stride,
+      [&processor](const KernelFilmConvert *kfilm_convert,
+                   ccl_global const float *buffer,
+                   float *pixel_rgba) {
+        processor(kfilm_convert, buffer, pixel_rgba);
+        pixel_rgba[3] = 1.0f;
+      });
+}
+
+/* Common implementation for half4 destination and single channel input pass. */
+template<typename Processor>
+ccl_device_inline void kernel_cuda_film_convert_half_rgba_common_value(
+    const KernelFilmConvert *kfilm_convert,
+    uchar4 *rgba,
+    float *render_buffer,
+    int num_pixels,
+    int offset,
+    int stride,
+    const Processor &processor)
+{
+  kernel_cuda_film_convert_half_rgba_common_rgba(
+      kfilm_convert,
+      rgba,
+      render_buffer,
+      num_pixels,
+      offset,
+      stride,
+      [&processor](const KernelFilmConvert *kfilm_convert,
+                   ccl_global const float *buffer,
+                   float *pixel_rgba) {
+        float value;
+        processor(kfilm_convert, buffer, &value);
+
+        pixel_rgba[0] = value;
+        pixel_rgba[1] = value;
+        pixel_rgba[2] = value;
+        pixel_rgba[3] = 1.0f;
+      });
+}
+
+#  define KERNEL_FILM_CONVERT_PROC(name) \
+    extern "C" __global__ void CUDA_LAUNCH_BOUNDS(CUDA_KERNEL_BLOCK_NUM_THREADS, \
+                                                  CUDA_KERNEL_MAX_REGISTERS) name
+
+#  define KERNEL_FILM_CONVERT_DEFINE_HALF_RGBA(variant, channels) \
+    KERNEL_FILM_CONVERT_PROC(kernel_cuda_film_convert_##variant##_half_rgba) \
+    (const KernelFilmConvert kfilm_convert, \
+     uchar4 *rgba, \
+     float *render_buffer, \
+     int num_pixels, \
+     int offset, \
+     int stride) \
+    { \
+      kernel_cuda_film_convert_half_rgba_common_##channels(&kfilm_convert, \
+                                                           rgba, \
+                                                           render_buffer, \
+                                                           num_pixels, \
+                                                           offset, \
+                                                           stride, \
+                                                           film_get_pass_pixel_##variant); \
+    }
+
+#  define KERNEL_FILM_CONVERT_DEFINE(variant, channels) \
+    KERNEL_FILM_CONVERT_DEFINE_HALF_RGBA(variant, channels)
+
+KERNEL_FILM_CONVERT_DEFINE(depth, value)
+KERNEL_FILM_CONVERT_DEFINE(mist, value)
+KERNEL_FILM_CONVERT_DEFINE(sample_count, value)
+KERNEL_FILM_CONVERT_DEFINE(float, value)
+
+KERNEL_FILM_CONVERT_DEFINE(shadow3, rgb)
+KERNEL_FILM_CONVERT_DEFINE(divide_even_color, rgb)
+KERNEL_FILM_CONVERT_DEFINE(float3, rgb)
+
+KERNEL_FILM_CONVERT_DEFINE(shadow4, rgba)
+KERNEL_FILM_CONVERT_DEFINE(motion, rgba)
+KERNEL_FILM_CONVERT_DEFINE(cryptomatte, rgba)
+KERNEL_FILM_CONVERT_DEFINE(denoising_color, rgba)
+KERNEL_FILM_CONVERT_DEFINE(shadow_catcher, rgba)
+KERNEL_FILM_CONVERT_DEFINE(shadow_catcher_matte_with_shadow, rgba)
+KERNEL_FILM_CONVERT_DEFINE(float4, rgba)
+
+#  undef KERNEL_FILM_CONVERT_DEFINE
+#  undef KERNEL_FILM_CONVERT_HALF_RGBA_DEFINE
+#  undef KERNEL_FILM_CONVERT_PROC
 
 /* --------------------------------------------------------------------
  * Shader evaluaiton.

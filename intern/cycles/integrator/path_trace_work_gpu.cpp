@@ -18,10 +18,10 @@
 
 #include "device/device.h"
 
+#include "integrator/pass_accessor_gpu.h"
 #include "render/buffers.h"
 #include "render/gpu_display.h"
 #include "render/scene.h"
-
 #include "util/util_logging.h"
 #include "util/util_tbb.h"
 #include "util/util_time.h"
@@ -38,7 +38,9 @@ PathTraceWorkGPU::PathTraceWorkGPU(Device *device,
       queue_(device->gpu_queue_create()),
       render_buffers_(buffers),
       integrator_queue_counter_(device, "integrator_queue_counter", MEM_READ_WRITE),
-      integrator_sort_key_counter_(device, "integrator_sort_key_counter", MEM_READ_WRITE),
+      integrator_shader_sort_counter_(device, "integrator_shader_sort_counter", MEM_READ_WRITE),
+      integrator_shader_raytrace_sort_counter_(
+          device, "integrator_shader_raytrace_sort_counter", MEM_READ_WRITE),
       queued_paths_(device, "queued_paths", MEM_READ_WRITE),
       num_queued_paths_(device, "num_queued_paths", MEM_READ_WRITE),
       work_tiles_(device, "work_tiles", MEM_READ_WRITE),
@@ -123,12 +125,17 @@ void PathTraceWorkGPU::alloc_integrator_sorting()
 {
   /* Allocate arrays for shader sorting. */
   const int num_shaders = device_scene_->shaders.size();
-  if (integrator_sort_key_counter_.size() < num_shaders) {
-    integrator_sort_key_counter_.alloc(num_shaders);
-    integrator_sort_key_counter_.zero_to_device();
+  if (integrator_shader_sort_counter_.size() < num_shaders) {
+    integrator_shader_sort_counter_.alloc(num_shaders);
+    integrator_shader_sort_counter_.zero_to_device();
+
+    integrator_shader_raytrace_sort_counter_.alloc(num_shaders);
+    integrator_shader_raytrace_sort_counter_.zero_to_device();
 
     integrator_state_gpu_.sort_key_counter[DEVICE_KERNEL_INTEGRATOR_SHADE_SURFACE] =
-        (int *)integrator_sort_key_counter_.device_pointer;
+        (int *)integrator_shader_sort_counter_.device_pointer;
+    integrator_state_gpu_.sort_key_counter[DEVICE_KERNEL_INTEGRATOR_SHADE_SURFACE_RAYTRACE] =
+        (int *)integrator_shader_raytrace_sort_counter_.device_pointer;
   }
 }
 
@@ -218,7 +225,8 @@ void PathTraceWorkGPU::enqueue_reset()
   void *args[] = {&max_num_paths_};
   queue_->enqueue(DEVICE_KERNEL_INTEGRATOR_RESET, max_num_paths_, args);
   queue_->zero_to_device(integrator_queue_counter_);
-  queue_->zero_to_device(integrator_sort_key_counter_);
+  queue_->zero_to_device(integrator_shader_sort_counter_);
+  queue_->zero_to_device(integrator_shader_raytrace_sort_counter_);
 
   /* Tiles enqueue need to know number of active paths, which is based on this counter. Zero the
    * counter on the host side because `zero_to_device()` is not doing it. */
@@ -232,12 +240,12 @@ bool PathTraceWorkGPU::enqueue_path_iteration()
   /* Find kernel to execute, with max number of queued paths. */
   const IntegratorQueueCounter *queue_counter = integrator_queue_counter_.data();
 
-  int num_paths = 0;
+  int num_active_paths = 0;
   for (int i = 0; i < DEVICE_KERNEL_INTEGRATOR_NUM; i++) {
-    num_paths += queue_counter->num_queued[i];
+    num_active_paths += queue_counter->num_queued[i];
   }
 
-  if (num_paths == 0) {
+  if (num_active_paths == 0) {
     return false;
   }
 
@@ -250,6 +258,7 @@ bool PathTraceWorkGPU::enqueue_path_iteration()
   /* Finish shadows before potentially adding more shadow rays. We can only
    * store one shadow ray in the integrator state. */
   if (kernel == DEVICE_KERNEL_INTEGRATOR_SHADE_SURFACE ||
+      kernel == DEVICE_KERNEL_INTEGRATOR_SHADE_SURFACE_RAYTRACE ||
       kernel == DEVICE_KERNEL_INTEGRATOR_SHADE_VOLUME) {
     if (queue_counter->num_queued[DEVICE_KERNEL_INTEGRATOR_INTERSECT_SHADOW]) {
       enqueue_path_iteration(DEVICE_KERNEL_INTEGRATOR_INTERSECT_SHADOW);
@@ -276,7 +285,8 @@ void PathTraceWorkGPU::enqueue_path_iteration(DeviceKernel kernel)
   IntegratorQueueCounter *queue_counter = integrator_queue_counter_.data();
   int num_queued = queue_counter->num_queued[kernel];
 
-  if (kernel == DEVICE_KERNEL_INTEGRATOR_SHADE_SURFACE) {
+  if (kernel == DEVICE_KERNEL_INTEGRATOR_SHADE_SURFACE ||
+      kernel == DEVICE_KERNEL_INTEGRATOR_SHADE_SURFACE_RAYTRACE) {
     /* Compute array of active paths, sorted by shader. */
     work_size = num_queued;
     d_path_index = (void *)queued_paths_.device_pointer;
@@ -296,8 +306,6 @@ void PathTraceWorkGPU::enqueue_path_iteration(DeviceKernel kernel)
       /* Compute array of active paths for specific kernel. */
       compute_queued_paths(DEVICE_KERNEL_INTEGRATOR_QUEUED_PATHS_ARRAY, kernel);
     }
-
-    queue_->zero_to_device(num_queued_paths_);
   }
 
   DCHECK_LE(work_size, max_num_paths_);
@@ -316,6 +324,7 @@ void PathTraceWorkGPU::enqueue_path_iteration(DeviceKernel kernel)
     case DEVICE_KERNEL_INTEGRATOR_SHADE_LIGHT:
     case DEVICE_KERNEL_INTEGRATOR_SHADE_SHADOW:
     case DEVICE_KERNEL_INTEGRATOR_SHADE_SURFACE:
+    case DEVICE_KERNEL_INTEGRATOR_SHADE_SURFACE_RAYTRACE:
     case DEVICE_KERNEL_INTEGRATOR_SHADE_VOLUME: {
       /* Shading kernels with integrator state and render buffer. */
       void *d_render_buffer = (void *)render_buffers_->buffer.device_pointer;
@@ -331,10 +340,25 @@ void PathTraceWorkGPU::enqueue_path_iteration(DeviceKernel kernel)
     case DEVICE_KERNEL_INTEGRATOR_ACTIVE_PATHS_ARRAY:
     case DEVICE_KERNEL_INTEGRATOR_TERMINATED_PATHS_ARRAY:
     case DEVICE_KERNEL_INTEGRATOR_SORTED_PATHS_ARRAY:
+    case DEVICE_KERNEL_INTEGRATOR_COMPACT_PATHS_ARRAY:
+    case DEVICE_KERNEL_INTEGRATOR_COMPACT_STATES:
     case DEVICE_KERNEL_INTEGRATOR_RESET:
     case DEVICE_KERNEL_SHADER_EVAL_DISPLACE:
     case DEVICE_KERNEL_SHADER_EVAL_BACKGROUND:
-    case DEVICE_KERNEL_CONVERT_TO_HALF_FLOAT:
+    case DEVICE_KERNEL_FILM_CONVERT_DEPTH_HALF_RGBA:
+    case DEVICE_KERNEL_FILM_CONVERT_MIST_HALF_RGBA:
+    case DEVICE_KERNEL_FILM_CONVERT_SAMPLE_COUNT_HALF_RGBA:
+    case DEVICE_KERNEL_FILM_CONVERT_FLOAT_HALF_RGBA:
+    case DEVICE_KERNEL_FILM_CONVERT_SHADOW3_HALF_RGBA:
+    case DEVICE_KERNEL_FILM_CONVERT_DIVIDE_EVEN_COLOR_HALF_RGBA:
+    case DEVICE_KERNEL_FILM_CONVERT_FLOAT3_HALF_RGBA:
+    case DEVICE_KERNEL_FILM_CONVERT_SHADOW4_HALF_RGBA:
+    case DEVICE_KERNEL_FILM_CONVERT_MOTION_HALF_RGBA:
+    case DEVICE_KERNEL_FILM_CONVERT_CRYPTOMATTE_HALF_RGBA:
+    case DEVICE_KERNEL_FILM_CONVERT_DENOISING_COLOR_HALF_RGBA:
+    case DEVICE_KERNEL_FILM_CONVERT_SHADOW_CATCHER_HALF_RGBA:
+    case DEVICE_KERNEL_FILM_CONVERT_SHADOW_CATCHER_MATTE_WITH_SHADOW_HALF_RGBA:
+    case DEVICE_KERNEL_FILM_CONVERT_FLOAT4_HALF_RGBA:
     case DEVICE_KERNEL_ADAPTIVE_SAMPLING_CONVERGENCE_CHECK:
     case DEVICE_KERNEL_ADAPTIVE_SAMPLING_CONVERGENCE_FILTER_X:
     case DEVICE_KERNEL_ADAPTIVE_SAMPLING_CONVERGENCE_FILTER_Y:
@@ -357,10 +381,12 @@ void PathTraceWorkGPU::compute_sorted_queued_paths(DeviceKernel kernel, DeviceKe
   /* Compute prefix sum of number of active paths with each shader. */
   {
     const int work_size = 1;
-    int num_shaders = integrator_sort_key_counter_.size();
+    int num_shaders = device_scene_->shaders.size();
     void *args[] = {&d_counter, &num_shaders};
     queue_->enqueue(DEVICE_KERNEL_PREFIX_SUM, work_size, args);
   }
+
+  queue_->zero_to_device(num_queued_paths_);
 
   /* Launch kernel to fill the active paths arrays. */
   {
@@ -379,32 +405,92 @@ void PathTraceWorkGPU::compute_sorted_queued_paths(DeviceKernel kernel, DeviceKe
     queue_->enqueue(kernel, work_size, args);
   }
 
-  queue_->zero_to_device(num_queued_paths_);
   if (queued_kernel == DEVICE_KERNEL_INTEGRATOR_SHADE_SURFACE) {
-    queue_->zero_to_device(integrator_sort_key_counter_);
+    queue_->zero_to_device(integrator_shader_sort_counter_);
+  }
+  else if (queued_kernel == DEVICE_KERNEL_INTEGRATOR_SHADE_SURFACE_RAYTRACE) {
+    queue_->zero_to_device(integrator_shader_raytrace_sort_counter_);
   }
   else {
-    /* TODO */
     assert(0);
   }
 }
 
 void PathTraceWorkGPU::compute_queued_paths(DeviceKernel kernel, DeviceKernel queued_kernel)
 {
-  /* Launch kernel to fill the active paths arrays. */
-  /* TODO: this could be smaller for terminated paths based on amount of work we want
-   * to schedule. */
-  const int work_size = (kernel == DEVICE_KERNEL_INTEGRATOR_TERMINATED_PATHS_ARRAY) ?
-                            min(max_num_paths_, get_max_num_camera_paths()) :
-                            max_active_path_index_;
   int d_queued_kernel = queued_kernel;
 
+  /* Launch kernel to fill the active paths arrays. */
+  const int work_size = max_active_path_index_;
   void *d_queued_paths = (void *)queued_paths_.device_pointer;
   void *d_num_queued_paths = (void *)num_queued_paths_.device_pointer;
   void *args[] = {
       const_cast<int *>(&work_size), &d_queued_paths, &d_num_queued_paths, &d_queued_kernel};
 
+  queue_->zero_to_device(num_queued_paths_);
   queue_->enqueue(kernel, work_size, args);
+}
+
+void PathTraceWorkGPU::compact_states(const int num_active_paths)
+{
+  if (num_active_paths == 0) {
+    max_active_path_index_ = 0;
+  }
+
+  /* TODO: not supported for shadow catcher yet. That needs to switch to an atomic
+   * counter for new paths so that we can fill in the space left after compaction. */
+  if (has_shadow_catcher()) {
+    return;
+  }
+
+  /* Compact fragmented path states into the start of the array, moving any paths
+   * with index higher than the number of active paths into the gaps. */
+  if (max_active_path_index_ == num_active_paths) {
+    return;
+  }
+
+  void *d_compact_paths = (void *)queued_paths_.device_pointer;
+  void *d_num_queued_paths = (void *)num_queued_paths_.device_pointer;
+
+  /* Create array with terminated paths that we can write to. */
+  {
+    /* TODO: can the work size be reduced here? */
+    int offset = num_active_paths;
+    int work_size = num_active_paths;
+    void *args[] = {&work_size, &d_compact_paths, &d_num_queued_paths, &offset};
+    queue_->zero_to_device(num_queued_paths_);
+    queue_->enqueue(DEVICE_KERNEL_INTEGRATOR_TERMINATED_PATHS_ARRAY, work_size, args);
+  }
+
+  /* Create array of paths that we need to compact, where the path index is bigger
+   * than the number of active paths. */
+  {
+    int work_size = max_active_path_index_;
+    void *args[] = {
+        &work_size, &d_compact_paths, &d_num_queued_paths, const_cast<int *>(&num_active_paths)};
+    queue_->zero_to_device(num_queued_paths_);
+    queue_->enqueue(DEVICE_KERNEL_INTEGRATOR_COMPACT_PATHS_ARRAY, work_size, args);
+  }
+
+  queue_->copy_from_device(num_queued_paths_);
+  queue_->synchronize();
+
+  int num_compact_paths = num_queued_paths_.data()[0];
+
+  /* Move paths into gaps. */
+  if (num_compact_paths > 0) {
+    int work_size = num_compact_paths;
+    int active_states_offset = 0;
+    int terminated_states_offset = num_active_paths;
+    void *args[] = {
+        &d_compact_paths, &active_states_offset, &terminated_states_offset, &work_size};
+    queue_->enqueue(DEVICE_KERNEL_INTEGRATOR_COMPACT_STATES, work_size, args);
+  }
+
+  queue_->synchronize();
+
+  /* Adjust max active path index now we know which part of the array is actually used. */
+  max_active_path_index_ = num_active_paths;
 }
 
 bool PathTraceWorkGPU::enqueue_work_tiles(bool &finished)
@@ -418,15 +504,11 @@ bool PathTraceWorkGPU::enqueue_work_tiles(bool &finished)
     return false;
   }
 
-  int num_paths = get_num_active_paths();
-
-  if (num_paths == 0) {
-    max_active_path_index_ = 0;
-  }
+  int num_active_paths = get_num_active_paths();
 
   /* Don't schedule more work if cancelling. */
   if (is_cancel_requested()) {
-    if (num_paths == 0) {
+    if (num_active_paths == 0) {
       finished = true;
     }
     return false;
@@ -440,6 +522,7 @@ bool PathTraceWorkGPU::enqueue_work_tiles(bool &finished)
 
   /* Schedule when we're out of paths or there are too few paths to keep the
    * device occupied. */
+  int num_paths = num_active_paths;
   if (num_paths == 0 || num_paths < min_num_active_paths_) {
     /* Get work tiles until the maximum number of path is reached. */
     while (num_paths < max_num_camera_paths) {
@@ -464,6 +547,10 @@ bool PathTraceWorkGPU::enqueue_work_tiles(bool &finished)
   if (work_tiles.size() == 0) {
     return false;
   }
+
+  /* Compact state array when number of paths becomes small relative to the
+   * known maximum path index, which makes computing active index arrays slow. */
+  compact_states(num_active_paths);
 
   enqueue_work_tiles(
       DEVICE_KERNEL_INTEGRATOR_INIT_FROM_CAMERA, work_tiles.data(), work_tiles.size());
@@ -502,8 +589,20 @@ void PathTraceWorkGPU::enqueue_work_tiles(DeviceKernel kernel,
   void *d_render_buffer = (void *)render_buffers_->buffer.device_pointer;
 
   if (max_active_path_index_ != 0) {
-    compute_queued_paths(DEVICE_KERNEL_INTEGRATOR_TERMINATED_PATHS_ARRAY, (DeviceKernel)0);
     queue_->zero_to_device(num_queued_paths_);
+
+    /* Limit work size to max known active path index + the number of paths we are going
+     * to enqueue, which may be smaller than the total number of paths possible. */
+    const int work_size = min(max_num_paths_, max_active_path_index_ + path_index_offset);
+    int queued_kernel = 0;
+
+    void *d_queued_paths = (void *)queued_paths_.device_pointer;
+    void *d_num_queued_paths = (void *)num_queued_paths_.device_pointer;
+    void *args[] = {
+        const_cast<int *>(&work_size), &d_queued_paths, &d_num_queued_paths, &queued_kernel};
+
+    queue_->enqueue(DEVICE_KERNEL_INTEGRATOR_TERMINATED_PATHS_ARRAY, work_size, args);
+
     d_path_index = (void *)queued_paths_.device_pointer;
   }
 
@@ -555,7 +654,7 @@ int PathTraceWorkGPU::get_max_num_camera_paths() const
   return max_num_paths_;
 }
 
-void PathTraceWorkGPU::copy_to_gpu_display(GPUDisplay *gpu_display, float sample_scale)
+void PathTraceWorkGPU::copy_to_gpu_display(GPUDisplay *gpu_display, int num_samples)
 {
   if (!interop_use_checked_) {
     Device *device = queue_->device;
@@ -572,16 +671,16 @@ void PathTraceWorkGPU::copy_to_gpu_display(GPUDisplay *gpu_display, float sample
   }
 
   if (interop_use_) {
-    if (copy_to_gpu_display_interop(gpu_display, sample_scale)) {
+    if (copy_to_gpu_display_interop(gpu_display, num_samples)) {
       return;
     }
     interop_use_ = false;
   }
 
-  copy_to_gpu_display_naive(gpu_display, sample_scale);
+  copy_to_gpu_display_naive(gpu_display, num_samples);
 }
 
-void PathTraceWorkGPU::copy_to_gpu_display_naive(GPUDisplay *gpu_display, float sample_scale)
+void PathTraceWorkGPU::copy_to_gpu_display_naive(GPUDisplay *gpu_display, int num_samples)
 {
   const int width = effective_buffer_params_.width;
   const int height = effective_buffer_params_.height;
@@ -601,14 +700,14 @@ void PathTraceWorkGPU::copy_to_gpu_display_naive(GPUDisplay *gpu_display, float 
     queue_->zero_to_device(gpu_display_rgba_half_);
   }
 
-  enqueue_film_convert(gpu_display_rgba_half_.device_pointer, sample_scale);
-  queue_->copy_from_device(gpu_display_rgba_half_);
-  queue_->synchronize();
+  run_film_convert(gpu_display_rgba_half_.device_pointer, num_samples);
+
+  gpu_display_rgba_half_.copy_from_device();
 
   gpu_display->copy_pixels_to_texture(gpu_display_rgba_half_.data());
 }
 
-bool PathTraceWorkGPU::copy_to_gpu_display_interop(GPUDisplay *gpu_display, float sample_scale)
+bool PathTraceWorkGPU::copy_to_gpu_display_interop(GPUDisplay *gpu_display, int num_samples)
 {
   Device *device = queue_->device;
 
@@ -625,29 +724,30 @@ bool PathTraceWorkGPU::copy_to_gpu_display_interop(GPUDisplay *gpu_display, floa
     return false;
   }
 
-  enqueue_film_convert(d_rgba_half, sample_scale);
+  run_film_convert(d_rgba_half, num_samples);
 
   device_graphics_interop_->unmap();
-  queue_->synchronize();
 
   return true;
 }
 
-void PathTraceWorkGPU::enqueue_film_convert(device_ptr d_rgba_half, float sample_scale)
+void PathTraceWorkGPU::run_film_convert(device_ptr d_rgba_half, int num_samples)
 {
-  const int work_size = effective_buffer_params_.width * effective_buffer_params_.height;
+  const KernelFilm &kfilm = device_scene_->data.film;
 
-  void *args[] = {&d_rgba_half,
-                  &render_buffers_->buffer.device_pointer,
-                  const_cast<float *>(&sample_scale),
-                  &effective_buffer_params_.full_x,
-                  &effective_buffer_params_.full_y,
-                  &effective_buffer_params_.width,
-                  &effective_buffer_params_.height,
-                  &effective_buffer_params_.offset,
-                  &effective_buffer_params_.stride};
+  /* TODO(sergey): De-duplicate with `PathTraceWorkCPU`. */
+  PassAccessor::PassAccessInfo pass_access_info;
+  pass_access_info.type = static_cast<PassType>(kfilm.display_pass_type);
+  pass_access_info.offset = kfilm.display_pass_offset;
+  pass_access_info.use_approximate_shadow_catcher = kfilm.use_approximate_shadow_catcher;
+  pass_access_info.show_active_pixels = kfilm.show_active_pixels;
 
-  queue_->enqueue(DEVICE_KERNEL_CONVERT_TO_HALF_FLOAT, work_size, args);
+  const PassAccessorGPU pass_accessor(queue_.get(), pass_access_info, kfilm.exposure, num_samples);
+
+  PassAccessor::Destination destination(pass_access_info.type);
+  destination.d_pixels_half_rgba = d_rgba_half;
+
+  pass_accessor.get_render_tile_pixels(render_buffers_, effective_buffer_params_, destination);
 }
 
 int PathTraceWorkGPU::adaptive_sampling_converge_filter_count_active(float threshold, bool reset)

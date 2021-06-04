@@ -168,16 +168,17 @@ void Film::device_update(Device *device, DeviceScene *dscene, Scene *scene)
 
   KernelFilm *kfilm = &dscene->data.film;
 
+  const PassType display_pass_type = get_actual_display_pass_type(scene->passes,
+                                                                  get_display_pass());
+
   /* update __data */
   kfilm->exposure = exposure;
   kfilm->pass_flag = 0;
 
+  kfilm->display_pass_type = display_pass_type;
   kfilm->display_pass_offset = -1;
-  kfilm->display_pass_components = 0;
-  kfilm->display_divide_pass_offset = -1;
-  kfilm->use_display_exposure = false;
-  kfilm->use_display_pass_alpha = (display_pass == PASS_COMBINED);
   kfilm->show_active_pixels = show_active_pixels;
+  kfilm->use_approximate_shadow_catcher = get_use_approximate_shadow_catcher();
 
   kfilm->light_pass_flag = 0;
   kfilm->pass_stride = 0;
@@ -213,15 +214,6 @@ void Film::device_update(Device *device, DeviceScene *dscene, Scene *scene)
   kfilm->pass_shadow_catcher_matte = PASS_UNUSED;
 
   bool have_cryptomatte = false;
-
-  /* When shadow catcher is used the combined pass is only used to get proper value for the
-   * shadow catcher pass. It is not very useful for artists as it is. What artists expect as a
-   * combined pass is something what is to be alpha-overed onto the footage. So we swap the
-   * combined pass with shadow catcher matte here. */
-  const PassType effective_display_pass_type = (display_pass == PASS_COMBINED &&
-                                                scene->has_shadow_catcher()) ?
-                                                   PASS_SHADOW_CATCHER_MATTE :
-                                                   display_pass;
 
   for (size_t i = 0; i < scene->passes.size(); i++) {
     Pass &pass = scene->passes[i];
@@ -391,14 +383,8 @@ void Film::device_update(Device *device, DeviceScene *dscene, Scene *scene)
         break;
     }
 
-    if (pass.type == effective_display_pass_type) {
+    if (pass.type == display_pass_type) {
       kfilm->display_pass_offset = kfilm->pass_stride;
-      kfilm->display_pass_components = pass.components;
-      kfilm->use_display_exposure = pass.exposure && (kfilm->exposure != 1.0f);
-    }
-    else if (pass.type == PASS_DIFFUSE_COLOR || pass.type == PASS_TRANSMISSION_COLOR ||
-             pass.type == PASS_GLOSSY_COLOR) {
-      kfilm->display_divide_pass_offset = kfilm->pass_stride;
     }
 
     kfilm->pass_stride += pass.components;
@@ -479,6 +465,38 @@ int Film::get_aov_offset(Scene *scene, string name, bool &is_color)
   }
 
   return -1;
+}
+
+const Pass *Film::get_actual_display_pass(const vector<Pass> &passes, const string &pass_name)
+{
+  const Pass *pass = Pass::find(passes, pass_name);
+  if (!pass) {
+    return nullptr;
+  }
+
+  const PassType actual_pass_type = get_actual_display_pass_type(passes, pass->type);
+  if (actual_pass_type != pass->type) {
+    /* This is a bit annoying to have a secondary `find()` here. But this is unlikely to become
+     * a bottleneck, so prefer to de-duplicate logic. */
+    return Pass::find(passes, PASS_SHADOW_CATCHER_MATTE);
+  }
+
+  return pass;
+}
+
+PassType Film::get_actual_display_pass_type(const vector<Pass> &passes, const PassType pass_type)
+{
+  /* When shadow catcher is used the combined pass is only used to get proper value for the
+   * shadow catcher pass. It is not very useful for artists as it is. What artists expect as a
+   * combined pass is something what is to be alpha-overed onto the footage. So we swap the
+   * combined pass with shadow catcher matte here. */
+  if (pass_type == PASS_COMBINED) {
+    if (Pass::contains(passes, PASS_SHADOW_CATCHER_MATTE)) {
+      return PASS_SHADOW_CATCHER_MATTE;
+    }
+  }
+
+  return pass_type;
 }
 
 CCL_NAMESPACE_END

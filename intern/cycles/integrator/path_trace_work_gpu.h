@@ -45,7 +45,7 @@ class PathTraceWorkGPU : public PathTraceWork {
 
   virtual void render_samples(int start_sample, int samples_num) override;
 
-  virtual void copy_to_gpu_display(GPUDisplay *gpu_display, float sample_scale) override;
+  virtual void copy_to_gpu_display(GPUDisplay *gpu_display, int num_samples) override;
 
   virtual int adaptive_sampling_converge_filter_count_active(float threshold, bool reset) override;
 
@@ -70,6 +70,8 @@ class PathTraceWorkGPU : public PathTraceWork {
   void compute_queued_paths(DeviceKernel kernel, DeviceKernel queued_kernel);
   void compute_sorted_queued_paths(DeviceKernel kernel, DeviceKernel queued_kernel);
 
+  void compact_states(const int num_active_paths);
+
   int get_num_active_paths();
 
   /* Maximum number of paths which are allowed to be initialized from the camera.
@@ -79,15 +81,15 @@ class PathTraceWorkGPU : public PathTraceWork {
 
   /* Naive implementation of the `copy_to_gpu_display()` which performs film conversion on the
    * device, then copies pixels to the host and pushes them to the `gpu_display`. */
-  void copy_to_gpu_display_naive(GPUDisplay *gpu_display, float sample_scale);
+  void copy_to_gpu_display_naive(GPUDisplay *gpu_display, int num_samples);
 
   /* Implementation of `copy_to_gpu_display()` which uses driver's OpenGL/GPU interoperability
    * functionality, avoiding copy of pixels to the host. */
-  bool copy_to_gpu_display_interop(GPUDisplay *gpu_display, float sample_scale);
+  bool copy_to_gpu_display_interop(GPUDisplay *gpu_display, int num_samples);
 
-  /* Enqueue the film conversion kernel which will store result in the given memory.
+  /* Synchronously run the film conversion kernel which will store result in the given memory.
    * This is a common part of both `copy_to_gpu_display` implementations. */
-  void enqueue_film_convert(device_ptr d_rgba_half, float sample_scale);
+  void run_film_convert(device_ptr d_rgba_half, int num_samples);
 
   int adaptive_sampling_convergence_check_count_active(float threshold, bool reset);
   void enqueue_adaptive_sampling_filter_x();
@@ -115,7 +117,8 @@ class PathTraceWorkGPU : public PathTraceWork {
   /* Keep track of number of queued kernels. */
   device_vector<IntegratorQueueCounter> integrator_queue_counter_;
   /* Shader sorting. */
-  device_vector<int> integrator_sort_key_counter_;
+  device_vector<int> integrator_shader_sort_counter_;
+  device_vector<int> integrator_shader_raytrace_sort_counter_;
 
   /* Temporary buffer to get an array of queued path for a particular kernel. */
   device_vector<int> queued_paths_;

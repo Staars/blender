@@ -18,6 +18,7 @@
 #include <string.h>
 
 #include "device/device.h"
+#include "integrator/pass_accessor_cpu.h"
 #include "integrator/path_trace.h"
 #include "render/bake.h"
 #include "render/buffers.h"
@@ -28,7 +29,6 @@
 #include "render/light.h"
 #include "render/mesh.h"
 #include "render/object.h"
-#include "render/pass_accessor.h"
 #include "render/scene.h"
 #include "render/session.h"
 
@@ -557,30 +557,9 @@ int2 Session::get_render_tile_offset() const
   return make_int2(tile.x - tile.full_x, tile.y - tile.full_y);
 }
 
-static const Pass *get_actual_pass_for_pixels(const vector<Pass> &passes, const string &pass_name)
-{
-  const Pass *pass = Pass::find(passes, pass_name);
-  if (!pass) {
-    return nullptr;
-  }
-
-  /* When shadow catcher is used the combined pass is only used to get proper value for the
-   * shadow catcher pass. It is not very useful for artists as it is. What artists expect as a
-   * combined pass is something what is to be alpha-overed onto the footage. So we swap the
-   * combined pass with shadow catcher matte here. */
-  if (pass->type == PASS_COMBINED) {
-    const Pass *matte_pass = Pass::find(passes, PASS_SHADOW_CATCHER_MATTE);
-    if (matte_pass) {
-      return matte_pass;
-    }
-  }
-
-  return pass;
-}
-
 bool Session::get_render_tile_pixels(const string &pass_name, int num_components, float *pixels)
 {
-  const Pass *pass = get_actual_pass_for_pixels(scene->passes, pass_name);
+  const Pass *pass = Film::get_actual_display_pass(scene->passes, pass_name);
   if (!pass) {
     return false;
   }
@@ -588,10 +567,11 @@ bool Session::get_render_tile_pixels(const string &pass_name, int num_components
   const float exposure = scene->film->get_exposure();
   const int num_samples = render_scheduler_.get_num_rendered_samples();
 
-  PassAccessor pass_accessor(
-      scene->film, scene->passes, pass, num_components, exposure, num_samples);
+  const PassAccessor::PassAccessInfo pass_access_info(*pass, *scene->film, scene->passes);
+  const PassAccessorCPU pass_accessor(pass_access_info, exposure, num_samples);
+  const PassAccessor::Destination destination(pixels, num_components);
 
-  return path_trace_->get_render_tile_pixels(pass_accessor, pixels);
+  return path_trace_->get_render_tile_pixels(pass_accessor, destination);
 }
 
 CCL_NAMESPACE_END

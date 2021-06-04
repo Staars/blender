@@ -425,7 +425,9 @@ typedef enum PassType {
 
   PASS_BAKE_PRIMITIVE,
   PASS_BAKE_DIFFERENTIAL,
-  PASS_CATEGORY_BAKE_END = 95
+  PASS_CATEGORY_BAKE_END = 95,
+
+  PASS_NUM,
 } PassType;
 
 #define PASS_ANY (~0)
@@ -1234,16 +1236,40 @@ typedef struct KernelFilm {
   int pass_bake_differential;
 
   /* viewport rendering options */
+  int display_pass_type;
   int display_pass_offset;
-  int display_pass_components;
-  int display_divide_pass_offset;
-  int use_display_exposure;
-  int use_display_pass_alpha;
   int show_active_pixels;
+  int use_approximate_shadow_catcher;
 
-  int pad;
+  /* deprecated */
+  int pad1, pad2, pad3;
 } KernelFilm;
 static_assert_align(KernelFilm, 16);
+
+typedef struct KernelFilmConvert {
+  int pass_offset;
+  int pass_stride;
+
+  int pass_use_exposure;
+  int pass_use_filter;
+
+  int pass_divide;
+
+  int pass_combined;
+  int pass_sample_count;
+  int pass_adaptive_aux_buffer;
+  int pass_motion_weight;
+  int pass_shadow_catcher;
+  int pass_shadow_catcher_matte;
+
+  float scale;
+  float exposure;
+  float scale_exposure;
+
+  int use_approximate_shadow_catcher;
+  int show_active_pixels;
+} KernelFilmConvert;
+static_assert_align(KernelFilmConvert, 16);
 
 typedef struct KernelBackground {
   /* only shader index */
@@ -1568,6 +1594,7 @@ typedef enum DeviceKernel {
   DEVICE_KERNEL_INTEGRATOR_SHADE_BACKGROUND,
   DEVICE_KERNEL_INTEGRATOR_SHADE_LIGHT,
   DEVICE_KERNEL_INTEGRATOR_SHADE_SURFACE,
+  DEVICE_KERNEL_INTEGRATOR_SHADE_SURFACE_RAYTRACE,
   DEVICE_KERNEL_INTEGRATOR_SHADE_VOLUME,
   DEVICE_KERNEL_INTEGRATOR_SHADE_SHADOW,
   DEVICE_KERNEL_INTEGRATOR_MEGAKERNEL,
@@ -1577,12 +1604,27 @@ typedef enum DeviceKernel {
   DEVICE_KERNEL_INTEGRATOR_ACTIVE_PATHS_ARRAY,
   DEVICE_KERNEL_INTEGRATOR_TERMINATED_PATHS_ARRAY,
   DEVICE_KERNEL_INTEGRATOR_SORTED_PATHS_ARRAY,
+  DEVICE_KERNEL_INTEGRATOR_COMPACT_PATHS_ARRAY,
+  DEVICE_KERNEL_INTEGRATOR_COMPACT_STATES,
   DEVICE_KERNEL_INTEGRATOR_RESET,
 
   DEVICE_KERNEL_SHADER_EVAL_DISPLACE,
   DEVICE_KERNEL_SHADER_EVAL_BACKGROUND,
 
-  DEVICE_KERNEL_CONVERT_TO_HALF_FLOAT,
+  DEVICE_KERNEL_FILM_CONVERT_DEPTH_HALF_RGBA,
+  DEVICE_KERNEL_FILM_CONVERT_MIST_HALF_RGBA,
+  DEVICE_KERNEL_FILM_CONVERT_SAMPLE_COUNT_HALF_RGBA,
+  DEVICE_KERNEL_FILM_CONVERT_FLOAT_HALF_RGBA,
+  DEVICE_KERNEL_FILM_CONVERT_SHADOW3_HALF_RGBA,
+  DEVICE_KERNEL_FILM_CONVERT_DIVIDE_EVEN_COLOR_HALF_RGBA,
+  DEVICE_KERNEL_FILM_CONVERT_FLOAT3_HALF_RGBA,
+  DEVICE_KERNEL_FILM_CONVERT_SHADOW4_HALF_RGBA,
+  DEVICE_KERNEL_FILM_CONVERT_MOTION_HALF_RGBA,
+  DEVICE_KERNEL_FILM_CONVERT_CRYPTOMATTE_HALF_RGBA,
+  DEVICE_KERNEL_FILM_CONVERT_DENOISING_COLOR_HALF_RGBA,
+  DEVICE_KERNEL_FILM_CONVERT_SHADOW_CATCHER_HALF_RGBA,
+  DEVICE_KERNEL_FILM_CONVERT_SHADOW_CATCHER_MATTE_WITH_SHADOW_HALF_RGBA,
+  DEVICE_KERNEL_FILM_CONVERT_FLOAT4_HALF_RGBA,
 
   DEVICE_KERNEL_ADAPTIVE_SAMPLING_CONVERGENCE_CHECK,
   DEVICE_KERNEL_ADAPTIVE_SAMPLING_CONVERGENCE_FILTER_X,
