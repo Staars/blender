@@ -25,8 +25,8 @@
 
 CCL_NAMESPACE_BEGIN
 
-#define KERNEL_TEX(type, name) typedef type name##_t;
-#include "kernel/kernel_textures.h"
+//#define KERNEL_TEX(type, name) typedef type name##_t;
+//#include "kernel/kernel_textures.h"
 
 struct KernelGlobals {
   int unused[1]; //TODO: maybe unnecessary
@@ -36,11 +36,18 @@ struct KernelGlobals {
   IntegratorStateGPU __integrator_state;
 };
 
+//template<typename T>
+//T kernel_tex_fetch_metal(T tex, uint index, constant const KernelGlobals *kg)
+//{
+//  return (kg->tex[(index)]);
+//}
+
 /* Abstraction macros */
 #define kernel_data (*kg->data)
-#define kernel_tex_array(tex) \
-  ((const ccl_global tex##_t *)(kg->buffers[kg->tex.cl_buffer] + kg->tex.data))
-#define kernel_tex_fetch(tex, index) kernel_tex_array(tex)[(index)]
+#define kernel_tex_array(tex) (tex)
+//#define kernel_tex_fetch(tex, index) kernel_tex_fetch_metal(tex, index, &kg)
+//#define kernel_tex_fetch(tex, index) (kg->tex[(index)])
+#define kernel_tex_fetch(tex, index) (kg->tex.fetch(index))
 #define kernel_integrator_state (kg->__integrator_state)
 
 CCL_NAMESPACE_END

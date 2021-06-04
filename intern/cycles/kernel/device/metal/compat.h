@@ -133,10 +133,11 @@
 #define make_uchar4(x, y, z, w) (uchar4(x, y, z, w))
 
 ///* math functions */
-//#define __uint_as_float(x) float(x)
-//#define __float_as_uint(x) uint(x)
-//#define __int_as_float(x) float(x)
-//#define __float_as_int(x) int(x)
+#define __uint_as_float(x) as_type<float>(x)
+#define __float_as_uint(x) as_type<uint>(x)
+#define __int_as_float(x) as_type<float>(x)
+#define __float_as_int(x) as_type<int>(x)
+
 #define powf(x, y) metal::pow(((float)(x)), ((float)(y)))
 #define fabsf(x) metal::fabs(((float)(x)))
 #define copysignf(x, y) metal::copysign(((float)(x)), ((float)(y)))
@@ -197,4 +198,15 @@ using metal::clz;
 #  define NULL nullptr
 #endif
 
-#define __syncthreads  
+#define __syncthreads
+
+/* Texture types to be compatible with CUDA textures. These are really just
+ * simple arrays and after inlining fetch hopefully revert to being a simple
+ * pointer lookup. */
+template<typename T> struct texture {
+  const T thread &fetch(int index) const
+  {
+//    kernel_assert(index >= 0 && index < width);
+    return data[index];
+  }
+
