@@ -72,6 +72,15 @@ PassAccessor::Destination::Destination(const PassType pass_type)
 }
 
 /* --------------------------------------------------------------------
+ * Pass source.
+ */
+
+PassAccessor::Source::Source(const float *pixels, int num_components)
+    : pixels(pixels), num_components(num_components)
+{
+}
+
+/* --------------------------------------------------------------------
  * Pass accessor.
  */
 
@@ -90,6 +99,49 @@ bool PassAccessor::get_render_tile_pixels(const RenderBuffers *render_buffers,
   return get_render_tile_pixels(render_buffers, render_buffers->params, destination);
 }
 
+static void pad_pixels(const BufferParams &buffer_params,
+                       const PassAccessor::Destination &destination,
+                       const int src_num_components)
+{
+  /* When requesting a single channel pass as RGBA, or RGB pass as RGBA,
+   * fill in the additional components for convenience. */
+  const int dest_num_components = destination.num_components;
+
+  if (src_num_components >= dest_num_components) {
+    return;
+  }
+
+  const size_t size = buffer_params.width * buffer_params.height;
+  if (destination.pixels) {
+    float *pixel = destination.pixels;
+
+    for (size_t i = 0; i < size; i++, pixel += dest_num_components) {
+      if (dest_num_components >= 3 && src_num_components == 1) {
+        pixel[1] = pixel[0];
+        pixel[2] = pixel[0];
+      }
+      if (dest_num_components >= 4) {
+        pixel[3] = 1.0f;
+      }
+    }
+  }
+
+  if (destination.pixels_half_rgba) {
+    const half one = float_to_half(1.0f);
+    half4 *pixel = destination.pixels_half_rgba;
+
+    for (size_t i = 0; i < size; i++, pixel++) {
+      if (dest_num_components >= 3 && src_num_components == 1) {
+        pixel[0].y = pixel[0].x;
+        pixel[0].z = pixel[0].x;
+      }
+      if (dest_num_components >= 4) {
+        pixel[0].w = one;
+      }
+    }
+  }
+}
+
 bool PassAccessor::get_render_tile_pixels(const RenderBuffers *render_buffers,
                                           const BufferParams &buffer_params,
                                           const Destination &destination) const
@@ -102,7 +154,7 @@ bool PassAccessor::get_render_tile_pixels(const RenderBuffers *render_buffers,
   const PassInfo pass_info = Pass::get_info(type);
 
   if (destination.num_components == 1) {
-    DCHECK_EQ(pass_info.num_components, destination.num_components)
+    DCHECK_LE(pass_info.num_components, destination.num_components)
         << "Number of components mismatch for pass type " << pass_info.type;
 
     /* Scalar */
@@ -124,11 +176,11 @@ bool PassAccessor::get_render_tile_pixels(const RenderBuffers *render_buffers,
   }
   else if (destination.num_components == 3) {
     if (pass_info.is_unaligned) {
-      DCHECK_EQ(pass_info.num_components, 3)
+      DCHECK_LE(pass_info.num_components, 3)
           << "Number of components mismatch for pass type " << pass_info.type;
     }
     else {
-      DCHECK_EQ(pass_info.num_components, 4)
+      DCHECK_LE(pass_info.num_components, 4)
           << "Number of components mismatch for pass type " << pass_info.type;
     }
 
@@ -146,33 +198,38 @@ bool PassAccessor::get_render_tile_pixels(const RenderBuffers *render_buffers,
     }
   }
   else if (destination.num_components == 4) {
-    DCHECK_EQ(pass_info.num_components, 4)
-        << "Number of components mismatch for pass type " << pass_info.type;
-
-    /* RGBA */
-    if (type == PASS_SHADOW) {
-      get_pass_shadow4(render_buffers, buffer_params, destination);
-    }
-    else if (type == PASS_MOTION) {
-      get_pass_motion(render_buffers, buffer_params, destination);
-    }
-    else if (type == PASS_CRYPTOMATTE) {
-      get_pass_cryptomatte(render_buffers, buffer_params, destination);
-    }
-    else if (type == PASS_DENOISING_COLOR) {
+    if (type == PASS_DENOISING_COLOR) {
+      /* RGB to RGBA (alpha comes from combined pass). */
       get_pass_denoising_color(render_buffers, buffer_params, destination);
     }
-    else if (type == PASS_SHADOW_CATCHER) {
-      get_pass_shadow_catcher(render_buffers, buffer_params, destination);
-    }
-    else if (type == PASS_SHADOW_CATCHER_MATTE &&
-             pass_access_info_.use_approximate_shadow_catcher) {
-      get_pass_shadow_catcher_matte_with_shadow(render_buffers, buffer_params, destination);
-    }
     else {
-      get_pass_float4(render_buffers, buffer_params, destination);
+      DCHECK_EQ(pass_info.num_components, 4)
+          << "Number of components mismatch for pass type " << pass_info.type;
+
+      /* RGBA */
+      if (type == PASS_SHADOW) {
+        get_pass_shadow4(render_buffers, buffer_params, destination);
+      }
+      else if (type == PASS_MOTION) {
+        get_pass_motion(render_buffers, buffer_params, destination);
+      }
+      else if (type == PASS_CRYPTOMATTE) {
+        get_pass_cryptomatte(render_buffers, buffer_params, destination);
+      }
+      else if (type == PASS_SHADOW_CATCHER) {
+        get_pass_shadow_catcher(render_buffers, buffer_params, destination);
+      }
+      else if (type == PASS_SHADOW_CATCHER_MATTE &&
+               pass_access_info_.use_approximate_shadow_catcher) {
+        get_pass_shadow_catcher_matte_with_shadow(render_buffers, buffer_params, destination);
+      }
+      else {
+        get_pass_float4(render_buffers, buffer_params, destination);
+      }
     }
   }
+
+  pad_pixels(buffer_params, destination, pass_info.num_components);
 
   return true;
 }
@@ -264,6 +321,29 @@ void PassAccessor::init_kernel_film_convert(KernelFilmConvert *kfilm_convert,
 
   kfilm_convert->use_approximate_shadow_catcher = pass_access_info_.use_approximate_shadow_catcher;
   kfilm_convert->show_active_pixels = pass_access_info_.show_active_pixels;
+}
+
+bool PassAccessor::set_render_tile_pixels(RenderBuffers *render_buffers, const Source &source)
+{
+  if (render_buffers == nullptr || render_buffers->buffer.data() == nullptr) {
+    return false;
+  }
+
+  const BufferParams &buffer_params = render_buffers->params;
+
+  float *buffer_data = render_buffers->buffer.data();
+  const int pass_stride = buffer_params.pass_stride;
+  const int size = buffer_params.width * buffer_params.height;
+  const int num_components = source.num_components;
+
+  float *out = buffer_data + pass_access_info_.offset;
+  const float *in = source.pixels;
+
+  for (int i = 0; i < size; i++, out += pass_stride, in += num_components) {
+    memcpy(out, in, sizeof(float) * num_components);
+  }
+
+  return true;
 }
 
 CCL_NAMESPACE_END

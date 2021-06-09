@@ -681,7 +681,6 @@ class CYCLES_RENDER_PT_filter(CyclesButtonsPanel, Panel):
 
         col = layout.column(heading="Include")
         col.prop(view_layer, "use_sky", text="Environment")
-        col.prop(view_layer, "use_ao", text="Ambient Occlusion")
         col.prop(view_layer, "use_solid", text="Surfaces")
         col.prop(view_layer, "use_strand", text="Hair")
         col.prop(view_layer, "use_volumes", text="Volumes")
@@ -1328,34 +1327,6 @@ class CYCLES_WORLD_PT_volume(CyclesButtonsPanel, Panel):
         panel_node_draw(layout, world, 'OUTPUT_WORLD', 'Volume')
 
 
-class CYCLES_WORLD_PT_ambient_occlusion(CyclesButtonsPanel, Panel):
-    bl_label = "Ambient Occlusion"
-    bl_context = "world"
-    bl_options = {'DEFAULT_CLOSED'}
-
-    @classmethod
-    def poll(cls, context):
-        return context.world and CyclesButtonsPanel.poll(context)
-
-    def draw_header(self, context):
-        light = context.world.light_settings
-        self.layout.prop(light, "use_ambient_occlusion", text="")
-
-    def draw(self, context):
-        layout = self.layout
-        layout.use_property_split = True
-        layout.use_property_decorate = False
-
-        light = context.world.light_settings
-        scene = context.scene
-
-        col = layout.column()
-        sub = col.column()
-        sub.active = light.use_ambient_occlusion or scene.render.use_simplify
-        sub.prop(light, "ao_factor", text="Factor")
-        col.prop(light, "distance", text="Distance")
-
-
 class CYCLES_WORLD_PT_mist(CyclesButtonsPanel, Panel):
     bl_label = "Mist Pass"
     bl_context = "world"
@@ -1643,9 +1614,6 @@ class CYCLES_RENDER_PT_bake(CyclesButtonsPanel, Panel):
         cbk = scene.render.bake
         rd = scene.render
 
-        if use_optix(context):
-            layout.label(text="Baking is performed using CUDA instead of OptiX", icon='INFO')
-
         if rd.use_bake_multires:
             layout.operator("object.bake_image", icon='RENDER_STILL')
             layout.prop(rd, "use_bake_multires")
@@ -1703,7 +1671,6 @@ class CYCLES_RENDER_PT_bake_influence(CyclesButtonsPanel, Panel):
             col.prop(cbk, "use_pass_diffuse")
             col.prop(cbk, "use_pass_glossy")
             col.prop(cbk, "use_pass_transmission")
-            col.prop(cbk, "use_pass_ambient_occlusion")
             col.prop(cbk, "use_pass_emit")
 
         elif cscene.bake_type in {'DIFFUSE', 'GLOSSY', 'TRANSMISSION'}:
@@ -2141,7 +2108,6 @@ classes = (
     CYCLES_WORLD_PT_preview,
     CYCLES_WORLD_PT_surface,
     CYCLES_WORLD_PT_volume,
-    CYCLES_WORLD_PT_ambient_occlusion,
     CYCLES_WORLD_PT_mist,
     CYCLES_WORLD_PT_ray_visibility,
     CYCLES_WORLD_PT_settings,
