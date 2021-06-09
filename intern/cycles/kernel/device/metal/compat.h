@@ -59,10 +59,10 @@
 #define __device__
 #define ccl_device __device__ __inline__
 //#if __METAL_ARCH__ < 500
-#  define ccl_device_inline
+//#  define ccl_device_inline
 #  define ccl_device_forceinline
 //#else
-//#  define ccl_device_inline __device__ __inline__
+#  define ccl_device_inline inline
 //#  define ccl_device_forceinline __device__ __forceinline__
 //#endif
 #define ccl_device_noinline __device__ __noinline__

@@ -24,21 +24,21 @@
 #  include "kernel/device/metal/parallel_prefix_sum.h"
 #  include "kernel/device/metal/parallel_sorted_index.h"
 
-//#  include "kernel/integrator/integrator_state.h"
-//#  include "kernel/integrator/integrator_state_flow.h"
-//#  include "kernel/integrator/integrator_state_util.h"
+#  include "kernel/integrator/integrator_state.h"
+#  include "kernel/integrator/integrator_state_flow.h"
+#  include "kernel/integrator/integrator_state_util.h"
 //
 #  include "kernel/integrator/integrator_init_from_camera.h"
-//#  include "kernel/integrator/integrator_intersect_closest.h"
-//#  include "kernel/integrator/integrator_intersect_shadow.h"
-//#  include "kernel/integrator/integrator_intersect_subsurface.h"
-//#  include "kernel/integrator/integrator_megakernel.h"
-//#  include "kernel/integrator/integrator_shade_background.h"
-//#  include "kernel/integrator/integrator_shade_light.h"
-//#  include "kernel/integrator/integrator_shade_shadow.h"
-//#  include "kernel/integrator/integrator_shade_surface.h"
-//#  include "kernel/integrator/integrator_shade_volume.h"
-//
+#  include "kernel/integrator/integrator_intersect_closest.h"
+#  include "kernel/integrator/integrator_intersect_shadow.h"
+#  include "kernel/integrator/integrator_intersect_subsurface.h"
+#  include "kernel/integrator/integrator_megakernel.h"
+#  include "kernel/integrator/integrator_shade_background.h"
+#  include "kernel/integrator/integrator_shade_light.h"
+#  include "kernel/integrator/integrator_shade_shadow.h"
+#  include "kernel/integrator/integrator_shade_surface.h"
+#  include "kernel/integrator/integrator_shade_volume.h"
+
 #  include "kernel/kernel_adaptive_sampling.h"
 
 //#  include "kernel/kernel_bake.h"
@@ -98,5 +98,4 @@ kernel void kernel_metal_integrator_init_from_camera(threadgroup int *path_index
 }
 
 
-
-#endif
+#endif /* __APPLE__ */

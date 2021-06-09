@@ -304,31 +304,52 @@ typedef struct RNGState {
   int sample;
 } RNGState;
 
+#if !defined(__KERNEL_METAL__)
 ccl_device_inline void path_state_rng_load(INTEGRATOR_STATE_CONST_ARGS, RNGState *rng_state)
+#else
+ccl_device_inline void path_state_rng_load(INTEGRATOR_STATE_CONST_ARGS, thread RNGState *rng_state)
+#endif
 {
   rng_state->rng_hash = INTEGRATOR_STATE(path, rng_hash);
   rng_state->rng_offset = INTEGRATOR_STATE(path, rng_offset);
   rng_state->sample = INTEGRATOR_STATE(path, sample);
 }
 
+#if !defined(__KERNEL_METAL__)
 ccl_device_inline float path_state_rng_1D(const KernelGlobals *kg,
                                           const RNGState *rng_state,
                                           int dimension)
+#else
+ccl_device_inline float path_state_rng_1D(device const KernelGlobals *kg,
+                                          thread const RNGState *rng_state,
+                                          int dimension)
+#endif
 {
   return path_rng_1D(
       kg, rng_state->rng_hash, rng_state->sample, rng_state->rng_offset + dimension);
 }
 
+#if !defined(__KERNEL_METAL__)
 ccl_device_inline void path_state_rng_2D(
     const KernelGlobals *kg, const RNGState *rng_state, int dimension, float *fx, float *fy)
+#else
+ccl_device_inline void path_state_rng_2D(
+    device const KernelGlobals *kg, thread const RNGState *rng_state, int dimension, thread float *fx, thread float *fy)
+#endif
 {
   path_rng_2D(
       kg, rng_state->rng_hash, rng_state->sample, rng_state->rng_offset + dimension, fx, fy);
 }
 
+#if !defined(__KERNEL_METAL__)
 ccl_device_inline float path_state_rng_1D_hash(const KernelGlobals *kg,
                                                const RNGState *rng_state,
                                                uint hash)
+#else
+ccl_device_inline float path_state_rng_1D_hash(device const KernelGlobals *kg,
+                                               thread const RNGState *rng_state,
+                                               uint hash)
+#endif
 {
   /* Use a hash instead of dimension, this is not great but avoids adding
    * more dimensions to each bounce which reduces quality of dimensions we
@@ -337,11 +358,19 @@ ccl_device_inline float path_state_rng_1D_hash(const KernelGlobals *kg,
       kg, cmj_hash_simple(rng_state->rng_hash, hash), rng_state->sample, rng_state->rng_offset);
 }
 
+#if !defined(__KERNEL_METAL__)
 ccl_device_inline float path_branched_rng_1D(const KernelGlobals *kg,
                                              const RNGState *rng_state,
                                              int branch,
                                              int num_branches,
                                              int dimension)
+#else
+ccl_device_inline float path_branched_rng_1D(device const KernelGlobals *kg,
+                                             thread const RNGState *rng_state,
+                                             int branch,
+                                             int num_branches,
+                                             int dimension)
+#endif
 {
   return path_rng_1D(kg,
                      rng_state->rng_hash,
@@ -349,6 +378,7 @@ ccl_device_inline float path_branched_rng_1D(const KernelGlobals *kg,
                      rng_state->rng_offset + dimension);
 }
 
+#if !defined(__KERNEL_METAL__)
 ccl_device_inline void path_branched_rng_2D(const KernelGlobals *kg,
                                             const RNGState *rng_state,
                                             int branch,
@@ -356,6 +386,15 @@ ccl_device_inline void path_branched_rng_2D(const KernelGlobals *kg,
                                             int dimension,
                                             float *fx,
                                             float *fy)
+#else
+ccl_device_inline void path_branched_rng_2D(device const KernelGlobals *kg,
+                                            thread const RNGState *rng_state,
+                                            int branch,
+                                            int num_branches,
+                                            int dimension,
+                                            thread float *fx,
+                                            thread float *fy)
+#endif
 {
   path_rng_2D(kg,
               rng_state->rng_hash,
@@ -368,8 +407,13 @@ ccl_device_inline void path_branched_rng_2D(const KernelGlobals *kg,
 /* Utility functions to get light termination value,
  * since it might not be needed in many cases.
  */
+#if !defined(__KERNEL_METAL__)
 ccl_device_inline float path_state_rng_light_termination(const KernelGlobals *kg,
                                                          const RNGState *state)
+#else
+ccl_device_inline float path_state_rng_light_termination(device const KernelGlobals *kg,
+                                                         thread const RNGState *state)
+#endif
 {
   if (kernel_data.integrator.light_inv_rr_threshold > 0.0f) {
     return path_state_rng_1D(kg, state, PRNG_LIGHT_TERMINATE);

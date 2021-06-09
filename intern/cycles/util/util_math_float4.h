@@ -67,9 +67,9 @@ ccl_device_inline float4 fabs(const float4 &a);
 ccl_device_inline float4 floor(const float4 &a);
 ccl_device_inline float4 mix(const float4 &a, const float4 &b, float t);
 #endif /* !__KERNEL_OPENCL__*/
-
+#if !defined(__KERNEL_METAL__)
 ccl_device_inline float4 safe_divide_float4_float(const float4 a, const float b);
-
+#endif
 #ifdef __KERNEL_SSE__
 template<size_t index_0, size_t index_1, size_t index_2, size_t index_3>
 __forceinline const float4 shuffle(const float4 &b);

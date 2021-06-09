@@ -35,7 +35,11 @@
 CCL_NAMESPACE_BEGIN
 
 /* distribute uniform xy on [0,1] over unit disk [-1,1] */
+#if !defined(__KERNEL_METAL__)
 ccl_device void to_unit_disk(float *x, float *y)
+#else
+ccl_device void to_unit_disk(thread float *x, thread float *y)
+#endif
 {
   float phi = M_2PI_F * (*x);
   float r = sqrtf(*y);
@@ -46,15 +50,24 @@ ccl_device void to_unit_disk(float *x, float *y)
 
 /* return an orthogonal tangent and bitangent given a normal and tangent that
  * may not be exactly orthogonal */
-ccl_device void make_orthonormals_tangent(const float3 N, const float3 T, float3 *a, float3 *b)
+#if !defined(__KERNEL_METAL__)
+ccl_device void make_orthonormals_tangent(const float3 N, const float3 t, float3 *a, float3 *b)
+#else
+ccl_device void make_orthonormals_tangent(const float3 N, const float3 t, thread float3 *a, thread float3 *b)
+#endif
 {
-  *b = normalize(cross(N, T));
+  *b = normalize(cross(N, t));
   *a = cross(*b, N);
 }
 
 /* sample direction with cosine weighted distributed in hemisphere */
+#if !defined(__KERNEL_METAL__)
 ccl_device_inline void sample_cos_hemisphere(
     const float3 N, float randu, float randv, float3 *omega_in, float *pdf)
+#else
+ccl_device_inline void sample_cos_hemisphere(
+    const float3 N, float randu, float randv, thread float3 *omega_in, thread float *pdf)
+#endif
 {
   to_unit_disk(&randu, &randv);
   float costheta = sqrtf(max(1.0f - randu * randu - randv * randv, 0.0f));
@@ -65,8 +78,13 @@ ccl_device_inline void sample_cos_hemisphere(
 }
 
 /* sample direction uniformly distributed in hemisphere */
+#if !defined(__KERNEL_METAL__)
 ccl_device_inline void sample_uniform_hemisphere(
     const float3 N, float randu, float randv, float3 *omega_in, float *pdf)
+#else
+ccl_device_inline void sample_uniform_hemisphere(
+    const float3 N, float randu, float randv, device float3 *omega_in, device float *pdf)
+#endif
 {
   float z = randu;
   float r = sqrtf(max(0.0f, 1.0f - z * z));
@@ -81,8 +99,13 @@ ccl_device_inline void sample_uniform_hemisphere(
 }
 
 /* sample direction uniformly distributed in cone */
+#if !defined(__KERNEL_METAL__)
 ccl_device_inline void sample_uniform_cone(
     const float3 N, float angle, float randu, float randv, float3 *omega_in, float *pdf)
+#else
+ccl_device_inline void sample_uniform_cone(
+    const float3 N, float angle, float randu, float randv, thread float3 *omega_in, thread float *pdf)
+#endif
 {
   float zMin = cosf(angle);
   float z = zMin - zMin * randu + randu;

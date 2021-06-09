@@ -65,6 +65,7 @@ ccl_device_inline float3 floor(const float3 &a);
 ccl_device_inline float3 ceil(const float3 &a);
 #endif /* !__KERNEL_OPENCL__ */
 
+#if !defined(__KERNEL_METAL__)
 ccl_device_inline float min3(float3 a);
 ccl_device_inline float max3(float3 a);
 ccl_device_inline float len(const float3 a);
@@ -75,13 +76,10 @@ ccl_device_inline float3 project(const float3 v, const float3 v_proj);
 
 ccl_device_inline float3 saturate3(float3 a);
 ccl_device_inline float3 safe_normalize(const float3 a);
-#if defined(__KERNEL_METAL__)
-ccl_device_inline float3 normalize_len(const float3 a, thread float *t);
-ccl_device_inline float3 safe_normalize_len(const float3 a, thread float *t);
-#else
+#endif
+#if !defined(__KERNEL_METAL__)
 ccl_device_inline float3 normalize_len(const float3 a, float *t);
 ccl_device_inline float3 safe_normalize_len(const float3 a, float *t);
-#endif
 ccl_device_inline float3 safe_divide_float3_float3(const float3 a, const float3 b);
 ccl_device_inline float3 safe_divide_float3_float(const float3 a, const float b);
 ccl_device_inline float3 interp(float3 a, float3 b, float t);
@@ -91,6 +89,7 @@ ccl_device_inline bool is_zero(const float3 a);
 ccl_device_inline float reduce_add(const float3 a);
 ccl_device_inline float average(const float3 a);
 ccl_device_inline bool isequal_float3(const float3 a, const float3 b);
+#endif
 
 /*******************************************************************************
  * Definition.

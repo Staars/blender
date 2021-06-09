@@ -39,7 +39,11 @@ CCL_NAMESPACE_BEGIN
  */
 #  define SOBOL_SKIP 64
 
+#if !defined(__KERNEL_METAL__)
 ccl_device uint sobol_dimension(const KernelGlobals *kg, int index, int dimension)
+#else
+ccl_device uint sobol_dimension(device const KernelGlobals *kg, int index, int dimension)
+#endif
 {
   uint result = 0;
   uint i = index + SOBOL_SKIP;
@@ -52,10 +56,17 @@ ccl_device uint sobol_dimension(const KernelGlobals *kg, int index, int dimensio
 
 #endif /* __SOBOL__ */
 
+#if !defined(__KERNEL_METAL__)
 ccl_device_forceinline float path_rng_1D(const KernelGlobals *kg,
                                          uint rng_hash,
                                          int sample,
                                          int dimension)
+#else
+ccl_device_forceinline float path_rng_1D(device const KernelGlobals *kg,
+                                         uint rng_hash,
+                                         int sample,
+                                         int dimension)
+#endif
 {
 #ifdef __DEBUG_CORRELATION__
   return (float)drand48();
@@ -85,9 +96,13 @@ ccl_device_forceinline float path_rng_1D(const KernelGlobals *kg,
   return r + shift - floorf(r + shift);
 #endif
 }
-
+#if !defined(__KERNEL_METAL__)
 ccl_device_forceinline void path_rng_2D(
     const KernelGlobals *kg, uint rng_hash, int sample, int dimension, float *fx, float *fy)
+#else
+ccl_device_forceinline void path_rng_2D(
+    device const KernelGlobals *kg, uint rng_hash, int sample, int dimension, thread float *fx, thread float *fy)
+#endif
 {
 #ifdef __DEBUG_CORRELATION__
   *fx = (float)drand48();
@@ -111,11 +126,17 @@ ccl_device_forceinline void path_rng_2D(
   *fy = path_rng_1D(kg, rng_hash, sample, dimension + 1);
 #endif
 }
-
+#if !defined(__KERNEL_METAL__)
 ccl_device_inline uint path_rng_hash_init(const KernelGlobals *ccl_restrict kg,
                                           const int sample,
                                           const int x,
                                           const int y)
+#else
+ccl_device_inline uint path_rng_hash_init(device const KernelGlobals *ccl_restrict kg,
+                                          const int sample,
+                                          const int x,
+                                          const int y)
+#endif
 {
   const uint rng_hash = hash_uint2(x, y) ^ kernel_data.integrator.seed;
 
@@ -129,15 +150,21 @@ ccl_device_inline uint path_rng_hash_init(const KernelGlobals *ccl_restrict kg,
 }
 
 /* Linear Congruential Generator */
-
+#if !defined(__KERNEL_METAL__)
 ccl_device uint lcg_step_uint(uint *rng)
+#else
+ccl_device uint lcg_step_uint(thread uint *rng)
+#endif
 {
   /* implicit mod 2^32 */
   *rng = (1103515245 * (*rng) + 12345);
   return *rng;
 }
-
+#if !defined(__KERNEL_METAL__)
 ccl_device float lcg_step_float(uint *rng)
+#else
+ccl_device float lcg_step_float(thread uint *rng)
+#endif
 {
   /* implicit mod 2^32 */
   *rng = (1103515245 * (*rng) + 12345);
@@ -159,7 +186,11 @@ ccl_device_inline uint lcg_state_init(const uint rng_hash,
   return lcg_init(rng_hash + rng_offset + sample * scramble);
 }
 
+#if !defined(__KERNEL_METAL__)
 ccl_device float lcg_step_float_addrspace(ccl_addr_space uint *rng)
+#else
+ccl_device float lcg_step_float_addrspace(thread uint *rng)
+#endif
 {
   /* Implicit mod 2^32 */
   *rng = (1103515245 * (*rng) + 12345);

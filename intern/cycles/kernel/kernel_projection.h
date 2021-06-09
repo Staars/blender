@@ -182,7 +182,11 @@ ccl_device float2 direction_to_mirrorball(float3 dir)
   return make_float2(u, v);
 }
 
+#if !defined(__KERNEL_METAL__)
 ccl_device_inline float3 panorama_to_direction(ccl_constant KernelCamera *cam, float u, float v)
+#else
+ccl_device_inline float3 panorama_to_direction(device ccl_constant KernelCamera *cam, float u, float v)
+#endif
 {
   switch (cam->panorama_type) {
     case PANORAMA_EQUIRECTANGULAR:
@@ -198,7 +202,11 @@ ccl_device_inline float3 panorama_to_direction(ccl_constant KernelCamera *cam, f
   }
 }
 
+#if !defined(__KERNEL_METAL__)
 ccl_device_inline float2 direction_to_panorama(ccl_constant KernelCamera *cam, float3 dir)
+#else
+ccl_device_inline float2 direction_to_panorama(device ccl_constant KernelCamera *cam, float3 dir)
+#endif
 {
   switch (cam->panorama_type) {
     case PANORAMA_EQUIRECTANGULAR:
@@ -214,9 +222,15 @@ ccl_device_inline float2 direction_to_panorama(ccl_constant KernelCamera *cam, f
   }
 }
 
+#if !defined(__KERNEL_METAL__)
 ccl_device_inline void spherical_stereo_transform(ccl_constant KernelCamera *cam,
                                                   float3 *P,
                                                   float3 *D)
+#else
+ccl_device_inline void spherical_stereo_transform(device ccl_constant KernelCamera *cam,
+                                                  thread float3 *P,
+                                                  thread float3 *D)
+#endif
 {
   float interocular_offset = cam->interocular_offset;
 

@@ -98,7 +98,7 @@
 #endif
 
 #if defined(__GNUC__) || defined(__clang__)
-#  if defined(__cplusplus)
+#  if defined(__cplusplus) && !defined(__KERNEL_METAL__)
 /* Some magic to be sure we don't have reference in the type. */
 template<typename T> static inline T decltype_helper(T x)
 {

@@ -25,12 +25,21 @@
 
 CCL_NAMESPACE_BEGIN
 
+#if !defined(__KERNEL_METAL__)
 ccl_device_inline void integrate_camera_sample(const KernelGlobals *ccl_restrict kg,
                                                const int sample,
                                                const int x,
                                                const int y,
                                                const uint rng_hash,
                                                Ray *ray)
+#else
+ccl_device_inline void integrate_camera_sample(device const KernelGlobals *ccl_restrict kg,
+                                               const int sample,
+                                               const int x,
+                                               const int y,
+                                               const uint rng_hash,
+                                               thread Ray *ray)
+#endif
 {
   /* Filter sampling. */
   float filter_u, filter_v;

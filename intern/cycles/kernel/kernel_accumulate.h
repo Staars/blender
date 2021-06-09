@@ -32,10 +32,17 @@ CCL_NAMESPACE_BEGIN
  * that only one of those can happen at a bounce, and so do not need to accumulate
  * them separately. */
 
+#if !defined(__KERNEL_METAL__)
 ccl_device_inline void bsdf_eval_init(BsdfEval *eval,
                                       const bool is_diffuse,
                                       float3 value,
                                       const bool use_light_pass)
+#else
+ccl_device_inline void bsdf_eval_init(thread BsdfEval *eval,
+                                      const bool is_diffuse,
+                                      float3 value,
+                                      const bool use_light_pass)
+#endif
 {
   eval->diffuse = zero_float3();
   eval->glossy = zero_float3();
@@ -48,10 +55,17 @@ ccl_device_inline void bsdf_eval_init(BsdfEval *eval,
   }
 }
 
+#if !defined(__KERNEL_METAL__)
 ccl_device_inline void bsdf_eval_accum(BsdfEval *eval,
                                        const bool is_diffuse,
                                        float3 value,
                                        float mis_weight)
+#else
+ccl_device_inline void bsdf_eval_accum(thread BsdfEval *eval,
+                                       const bool is_diffuse,
+                                       float3 value,
+                                       float mis_weight)
+#endif
 {
   value *= mis_weight;
 
@@ -63,29 +77,49 @@ ccl_device_inline void bsdf_eval_accum(BsdfEval *eval,
   }
 }
 
+#if !defined(__KERNEL_METAL__)
 ccl_device_inline bool bsdf_eval_is_zero(BsdfEval *eval)
+#else
+ccl_device_inline bool bsdf_eval_is_zero(thread BsdfEval *eval)
+#endif
 {
   return is_zero(eval->diffuse) && is_zero(eval->glossy);
 }
 
+#if !defined(__KERNEL_METAL__)
 ccl_device_inline void bsdf_eval_mul(BsdfEval *eval, float value)
+#else
+ccl_device_inline void bsdf_eval_mul(thread BsdfEval *eval, float value)
+#endif
 {
   eval->diffuse *= value;
   eval->glossy *= value;
 }
 
+#if !defined(__KERNEL_METAL__)
 ccl_device_inline void bsdf_eval_mul3(BsdfEval *eval, float3 value)
+#else
+ccl_device_inline void bsdf_eval_mul3(thread BsdfEval *eval, float3 value)
+#endif
 {
   eval->diffuse *= value;
   eval->glossy *= value;
 }
 
+#if !defined(__KERNEL_METAL__)
 ccl_device_inline float3 bsdf_eval_sum(const BsdfEval *eval)
+#else
+ccl_device_inline float3 bsdf_eval_sum(thread const BsdfEval *eval)
+#endif
 {
   return eval->diffuse + eval->glossy;
 }
 
+#if !defined(__KERNEL_METAL__)
 ccl_device_inline float3 bsdf_eval_diffuse_glossy_ratio(const BsdfEval *eval)
+#else
+ccl_device_inline float3 bsdf_eval_diffuse_glossy_ratio(thread const BsdfEval *eval)
+#endif
 {
   /* Ratio of diffuse and glossy to recover proportions for writing to render pass.
    * We assume reflection, transmission and volume scatter to be exclusive. */
@@ -99,7 +133,11 @@ ccl_device_inline float3 bsdf_eval_diffuse_glossy_ratio(const BsdfEval *eval)
  * to render buffers instead of using per-thread memory, and to avoid the
  * impact of clamping on other contributions. */
 
+#if !defined(__KERNEL_METAL__)
 ccl_device_forceinline void kernel_accum_clamp(const KernelGlobals *kg, float3 *L, int bounce)
+#else
+ccl_device_forceinline void kernel_accum_clamp(device const KernelGlobals *kg, thread float3 *L, int bounce)
+#endif
 {
   /* Make sure all components are finite, allowing the contribution to be usable by adaptive
    * sampling convergence check, but also to make it so render result never causes issues with
@@ -147,10 +185,17 @@ ccl_device_inline void path_radiance_accum_light(const KernelGlobals *kg,
 #  endif
 }
 
+#if !defined(__KERNEL_METAL__)
 ccl_device_inline void path_radiance_accum_total_light(PathRadiance *L,
                                                        ccl_addr_space PathState *state,
                                                        float3 throughput,
                                                        const BsdfEval *bsdf_eval)
+#else
+ccl_device_inline void path_radiance_accum_total_light(thread PathRadiance *L,
+                                                       thread ccl_addr_space PathState *state,
+                                                       float3 throughput,
+                                                       thread const BsdfEval *bsdf_eval)
+#endif
 {
 #  ifdef __SHADOW_TRICKS__
   if (state->flag & PATH_RAY_STORE_SHADOW_INFO) {
@@ -164,11 +209,19 @@ ccl_device_inline void path_radiance_accum_total_light(PathRadiance *L,
 #  endif
 }
 
+#if !defined(__KERNEL_METAL__)
 ccl_device_inline void path_radiance_accum_background(const KernelGlobals *kg,
                                                       PathRadiance *L,
                                                       ccl_addr_space PathState *state,
                                                       float3 throughput,
                                                       float3 value)
+#else
+ccl_device_inline void path_radiance_accum_background(device const KernelGlobals *kg,
+                                                      thread PathRadiance *L,
+                                                      thread ccl_addr_space PathState *state,
+                                                      float3 throughput,
+                                                      float3 value)
+#endif
 {
 
 #  ifdef __SHADOW_TRICKS__
@@ -183,17 +236,29 @@ ccl_device_inline void path_radiance_accum_background(const KernelGlobals *kg,
 #  endif
 }
 
+#if !defined(__KERNEL_METAL__)
 ccl_device_inline void path_radiance_accum_transparent(PathRadiance *L,
                                                        ccl_addr_space PathState *state,
                                                        float3 throughput)
+#else
+ccl_device_inline void path_radiance_accum_transparent(thread PathRadiance *L,
+                                                       thread ccl_addr_space PathState *state,
+                                                       float3 throughput)
+#endif
 {
   L->transparent += average(throughput);
 }
 
 #  ifdef __SHADOW_TRICKS__
+#if !defined(__KERNEL_METAL__)
 ccl_device_inline void path_radiance_accum_shadowcatcher(PathRadiance *L,
                                                          float3 throughput,
                                                          float3 background)
+#else
+ccl_device_inline void path_radiance_accum_shadowcatcher(thread PathRadiance *L,
+                                                         float3 throughput,
+                                                         float3 background)
+#endif
 {
   L->shadow_throughput += average(throughput);
   L->shadow_background_color += throughput * background;
@@ -202,10 +267,17 @@ ccl_device_inline void path_radiance_accum_shadowcatcher(PathRadiance *L,
 #  endif
 
 #  ifdef __SHADOW_TRICKS__
+#if !defined(__KERNEL_METAL__)
 ccl_device_inline void path_radiance_sum_shadowcatcher(const KernelGlobals *kg,
                                                        PathRadiance *L,
                                                        float3 *L_sum,
                                                        float *alpha)
+#else
+ccl_device_inline void path_radiance_sum_shadowcatcher(device const KernelGlobals *kg,
+                                                       thread PathRadiance *L,
+                                                       thread float3 *L_sum,
+                                                       thread float *alpha)
+#endif
 {
   /* Calculate current shadow of the path. */
   float path_total = average(L->path_total);
@@ -234,9 +306,15 @@ ccl_device_inline void path_radiance_sum_shadowcatcher(const KernelGlobals *kg,
 }
 #  endif
 
+#if !defined(__KERNEL_METAL__)
 ccl_device_inline float3 path_radiance_clamp_and_sum(const KernelGlobals *kg,
                                                      PathRadiance *L,
                                                      float *alpha)
+#else
+ccl_device_inline float3 path_radiance_clamp_and_sum(device const KernelGlobals *kg,
+                                                     thread PathRadiance *L,
+                                                     thread float *alpha)
+#endif
 {
   float3 L_sum;
   /* Light Passes are used */
