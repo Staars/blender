@@ -32,6 +32,15 @@
 
 #pragma once
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 #include "kernel/kernel_lookup_table.h"
 #include "kernel/kernel_random.h"
 
@@ -47,22 +56,22 @@ typedef ccl_addr_space struct MicrofacetBsdf {
   SHADER_CLOSURE_BASE;
 
   float alpha_x, alpha_y, ior;
-  MicrofacetExtra *extra;
-  float3 T;
+  METAL_ASQ_THREAD MicrofacetExtra *extra;
+  float3 t;
 } MicrofacetBsdf;
 
 static_assert(sizeof(ShaderClosure) >= sizeof(MicrofacetBsdf), "MicrofacetBsdf is too large!");
 
 /* Beckmann and GGX microfacet importance sampling. */
 
-ccl_device_inline void microfacet_beckmann_sample_slopes(const KernelGlobals *kg,
+ccl_device_inline void microfacet_beckmann_sample_slopes(METAL_ASQ_DEVICE const KernelGlobals *kg,
                                                          const float cos_theta_i,
                                                          const float sin_theta_i,
                                                          float randu,
                                                          float randv,
-                                                         float *slope_x,
-                                                         float *slope_y,
-                                                         float *G1i)
+                                                         METAL_ASQ_THREAD float *slope_x,
+                                                         METAL_ASQ_THREAD float *slope_y,
+                                                         METAL_ASQ_THREAD float *G1i)
 {
   /* special case (normal incidence) */
   if (cos_theta_i >= 0.99999f) {
@@ -146,9 +155,9 @@ ccl_device_inline void microfacet_ggx_sample_slopes(const float cos_theta_i,
                                                     const float sin_theta_i,
                                                     float randu,
                                                     float randv,
-                                                    float *slope_x,
-                                                    float *slope_y,
-                                                    float *G1i)
+                                                    METAL_ASQ_THREAD float *slope_x,
+                                                    METAL_ASQ_THREAD float *slope_y,
+                                                    METAL_ASQ_THREAD float *G1i)
 {
   /* special case (normal incidence) */
   if (cos_theta_i >= 0.99999f) {
@@ -195,14 +204,14 @@ ccl_device_inline void microfacet_ggx_sample_slopes(const float cos_theta_i,
   *slope_y = S * z * safe_sqrtf(1.0f + (*slope_x) * (*slope_x));
 }
 
-ccl_device_forceinline float3 microfacet_sample_stretched(const KernelGlobals *kg,
+ccl_device_forceinline float3 microfacet_sample_stretched(METAL_ASQ_DEVICE const KernelGlobals *kg,
                                                           const float3 omega_i,
                                                           const float alpha_x,
                                                           const float alpha_y,
                                                           const float randu,
                                                           const float randv,
                                                           bool beckmann,
-                                                          float *G1i)
+                                                          METAL_ASQ_THREAD float *G1i)
 {
   /* 1. stretch omega_i */
   float3 omega_i_ = make_float3(alpha_x * omega_i.x, alpha_y * omega_i.y, omega_i.z);
@@ -254,7 +263,7 @@ ccl_device_forceinline float3 microfacet_sample_stretched(const KernelGlobals *k
  *
  * Else it is simply white
  */
-ccl_device_forceinline float3 reflection_color(const MicrofacetBsdf *bsdf, float3 L, float3 H)
+ccl_device_forceinline float3 reflection_color(METAL_ASQ_THREAD const MicrofacetBsdf *bsdf, float3 L, float3 H)
 {
   float3 F = make_float3(1.0f, 1.0f, 1.0f);
   bool use_fresnel = (bsdf->type == CLOSURE_BSDF_MICROFACET_GGX_FRESNEL_ID ||
@@ -277,8 +286,8 @@ ccl_device_forceinline float D_GTR1(float NdotH, float alpha)
   return (alpha2 - 1.0f) / (M_PI_F * logf(alpha2) * t);
 }
 
-ccl_device_forceinline void bsdf_microfacet_fresnel_color(const ShaderData *sd,
-                                                          MicrofacetBsdf *bsdf)
+ccl_device_forceinline void bsdf_microfacet_fresnel_color(METAL_ASQ_DEVICE const ShaderData *sd,
+                                                          METAL_ASQ_THREAD MicrofacetBsdf *bsdf)
 {
   kernel_assert(CLOSURE_IS_BSDF_MICROFACET_FRESNEL(bsdf->type));
 
@@ -306,7 +315,7 @@ ccl_device_forceinline void bsdf_microfacet_fresnel_color(const ShaderData *sd,
  * Anisotropy is only supported for reflection currently, but adding it for
  * transmission is just a matter of copying code from reflection if needed. */
 
-ccl_device int bsdf_microfacet_ggx_setup(MicrofacetBsdf *bsdf)
+ccl_device int bsdf_microfacet_ggx_setup(METAL_ASQ_THREAD MicrofacetBsdf *bsdf)
 {
   bsdf->extra = NULL;
 
@@ -319,14 +328,14 @@ ccl_device int bsdf_microfacet_ggx_setup(MicrofacetBsdf *bsdf)
 }
 
 /* Required to maintain OSL interface. */
-ccl_device int bsdf_microfacet_ggx_isotropic_setup(MicrofacetBsdf *bsdf)
+ccl_device int bsdf_microfacet_ggx_isotropic_setup(METAL_ASQ_THREAD MicrofacetBsdf *bsdf)
 {
   bsdf->alpha_y = bsdf->alpha_x;
 
   return bsdf_microfacet_ggx_setup(bsdf);
 }
 
-ccl_device int bsdf_microfacet_ggx_fresnel_setup(MicrofacetBsdf *bsdf, const ShaderData *sd)
+ccl_device int bsdf_microfacet_ggx_fresnel_setup(METAL_ASQ_THREAD MicrofacetBsdf *bsdf, METAL_ASQ_DEVICE const ShaderData *sd)
 {
   bsdf->extra->cspec0 = saturate3(bsdf->extra->cspec0);
 
@@ -340,7 +349,7 @@ ccl_device int bsdf_microfacet_ggx_fresnel_setup(MicrofacetBsdf *bsdf, const Sha
   return SD_BSDF | SD_BSDF_HAS_EVAL;
 }
 
-ccl_device int bsdf_microfacet_ggx_clearcoat_setup(MicrofacetBsdf *bsdf, const ShaderData *sd)
+ccl_device int bsdf_microfacet_ggx_clearcoat_setup(METAL_ASQ_THREAD MicrofacetBsdf *bsdf, METAL_ASQ_DEVICE const ShaderData *sd)
 {
   bsdf->extra->cspec0 = saturate3(bsdf->extra->cspec0);
 
@@ -354,13 +363,13 @@ ccl_device int bsdf_microfacet_ggx_clearcoat_setup(MicrofacetBsdf *bsdf, const S
   return SD_BSDF | SD_BSDF_HAS_EVAL;
 }
 
-ccl_device bool bsdf_microfacet_merge(const ShaderClosure *a, const ShaderClosure *b)
+ccl_device bool bsdf_microfacet_merge(METAL_ASQ_THREAD const ShaderClosure *a, METAL_ASQ_THREAD const ShaderClosure *b)
 {
   const MicrofacetBsdf *bsdf_a = (const MicrofacetBsdf *)a;
   const MicrofacetBsdf *bsdf_b = (const MicrofacetBsdf *)b;
 
   return (isequal_float3(bsdf_a->N, bsdf_b->N)) && (bsdf_a->alpha_x == bsdf_b->alpha_x) &&
-         (bsdf_a->alpha_y == bsdf_b->alpha_y) && (isequal_float3(bsdf_a->T, bsdf_b->T)) &&
+         (bsdf_a->alpha_y == bsdf_b->alpha_y) && (isequal_float3(bsdf_a->t, bsdf_b->t)) &&
          (bsdf_a->ior == bsdf_b->ior) &&
          ((bsdf_a->extra == NULL && bsdf_b->extra == NULL) ||
           ((bsdf_a->extra && bsdf_b->extra) &&
@@ -369,7 +378,7 @@ ccl_device bool bsdf_microfacet_merge(const ShaderClosure *a, const ShaderClosur
            (bsdf_a->extra->clearcoat == bsdf_b->extra->clearcoat)));
 }
 
-ccl_device int bsdf_microfacet_ggx_refraction_setup(MicrofacetBsdf *bsdf)
+ccl_device int bsdf_microfacet_ggx_refraction_setup(METAL_ASQ_THREAD MicrofacetBsdf *bsdf)
 {
   bsdf->extra = NULL;
 
@@ -381,7 +390,7 @@ ccl_device int bsdf_microfacet_ggx_refraction_setup(MicrofacetBsdf *bsdf)
   return SD_BSDF | SD_BSDF_HAS_EVAL;
 }
 
-ccl_device void bsdf_microfacet_ggx_blur(ShaderClosure *sc, float roughness)
+ccl_device void bsdf_microfacet_ggx_blur(METAL_ASQ_THREAD ShaderClosure *sc, float roughness)
 {
   MicrofacetBsdf *bsdf = (MicrofacetBsdf *)sc;
 
@@ -389,10 +398,10 @@ ccl_device void bsdf_microfacet_ggx_blur(ShaderClosure *sc, float roughness)
   bsdf->alpha_y = fmaxf(roughness, bsdf->alpha_y);
 }
 
-ccl_device float3 bsdf_microfacet_ggx_eval_reflect(const ShaderClosure *sc,
+ccl_device float3 bsdf_microfacet_ggx_eval_reflect(METAL_ASQ_THREAD const ShaderClosure *sc,
                                                    const float3 I,
                                                    const float3 omega_in,
-                                                   float *pdf)
+                                                   METAL_ASQ_THREAD float *pdf)
 {
   const MicrofacetBsdf *bsdf = (const MicrofacetBsdf *)sc;
   float alpha_x = bsdf->alpha_x;
@@ -440,7 +449,7 @@ ccl_device float3 bsdf_microfacet_ggx_eval_reflect(const ShaderClosure *sc,
     else {
       /* anisotropic */
       float3 X, Y, Z = N;
-      make_orthonormals_tangent(Z, bsdf->T, &X, &Y);
+      make_orthonormals_tangent(Z, bsdf->t, &X, &Y);
 
       /* distribution */
       float3 local_m = make_float3(dot(X, m), dot(Y, m), dot(Z, m));
@@ -502,10 +511,10 @@ ccl_device float3 bsdf_microfacet_ggx_eval_reflect(const ShaderClosure *sc,
   return make_float3(0.0f, 0.0f, 0.0f);
 }
 
-ccl_device float3 bsdf_microfacet_ggx_eval_transmit(const ShaderClosure *sc,
+ccl_device float3 bsdf_microfacet_ggx_eval_transmit(METAL_ASQ_THREAD const ShaderClosure *sc,
                                                     const float3 I,
                                                     const float3 omega_in,
-                                                    float *pdf)
+                                                    METAL_ASQ_THREAD float *pdf)
 {
   const MicrofacetBsdf *bsdf = (const MicrofacetBsdf *)sc;
   float alpha_x = bsdf->alpha_x;
@@ -560,19 +569,19 @@ ccl_device float3 bsdf_microfacet_ggx_eval_transmit(const ShaderClosure *sc,
   return make_float3(out, out, out);
 }
 
-ccl_device int bsdf_microfacet_ggx_sample(const KernelGlobals *kg,
-                                          const ShaderClosure *sc,
+ccl_device int bsdf_microfacet_ggx_sample(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                          METAL_ASQ_THREAD const ShaderClosure *sc,
                                           float3 Ng,
                                           float3 I,
                                           float3 dIdx,
                                           float3 dIdy,
                                           float randu,
                                           float randv,
-                                          float3 *eval,
-                                          float3 *omega_in,
-                                          float3 *domega_in_dx,
-                                          float3 *domega_in_dy,
-                                          float *pdf)
+                                          METAL_ASQ_THREAD float3 *eval,
+                                          METAL_ASQ_THREAD float3 *omega_in,
+                                          METAL_ASQ_THREAD float3 *domega_in_dx,
+                                          METAL_ASQ_THREAD float3 *domega_in_dy,
+                                          METAL_ASQ_THREAD float *pdf)
 {
   const MicrofacetBsdf *bsdf = (const MicrofacetBsdf *)sc;
   float alpha_x = bsdf->alpha_x;
@@ -588,7 +597,7 @@ ccl_device int bsdf_microfacet_ggx_sample(const KernelGlobals *kg,
     if (alpha_x == alpha_y)
       make_orthonormals(Z, &X, &Y);
     else
-      make_orthonormals_tangent(Z, bsdf->T, &X, &Y);
+      make_orthonormals_tangent(Z, bsdf->t, &X, &Y);
 
     /* importance sampling with distribution of visible normals. vectors are
      * transformed to local space before and after */
@@ -789,7 +798,7 @@ ccl_device int bsdf_microfacet_ggx_sample(const KernelGlobals *kg,
  * Microfacet Models for Refraction through Rough Surfaces
  * B. Walter, S. R. Marschner, H. Li, K. E. Torrance, EGSR 2007 */
 
-ccl_device int bsdf_microfacet_beckmann_setup(MicrofacetBsdf *bsdf)
+ccl_device int bsdf_microfacet_beckmann_setup(METAL_ASQ_THREAD MicrofacetBsdf *bsdf)
 {
   bsdf->alpha_x = saturate(bsdf->alpha_x);
   bsdf->alpha_y = saturate(bsdf->alpha_y);
@@ -799,14 +808,14 @@ ccl_device int bsdf_microfacet_beckmann_setup(MicrofacetBsdf *bsdf)
 }
 
 /* Required to maintain OSL interface. */
-ccl_device int bsdf_microfacet_beckmann_isotropic_setup(MicrofacetBsdf *bsdf)
+ccl_device int bsdf_microfacet_beckmann_isotropic_setup(METAL_ASQ_THREAD MicrofacetBsdf *bsdf)
 {
   bsdf->alpha_y = bsdf->alpha_x;
 
   return bsdf_microfacet_beckmann_setup(bsdf);
 }
 
-ccl_device int bsdf_microfacet_beckmann_refraction_setup(MicrofacetBsdf *bsdf)
+ccl_device int bsdf_microfacet_beckmann_refraction_setup(METAL_ASQ_THREAD MicrofacetBsdf *bsdf)
 {
   bsdf->alpha_x = saturate(bsdf->alpha_x);
   bsdf->alpha_y = bsdf->alpha_x;
@@ -815,7 +824,7 @@ ccl_device int bsdf_microfacet_beckmann_refraction_setup(MicrofacetBsdf *bsdf)
   return SD_BSDF | SD_BSDF_HAS_EVAL;
 }
 
-ccl_device void bsdf_microfacet_beckmann_blur(ShaderClosure *sc, float roughness)
+ccl_device void bsdf_microfacet_beckmann_blur(METAL_ASQ_THREAD ShaderClosure *sc, float roughness)
 {
   MicrofacetBsdf *bsdf = (MicrofacetBsdf *)sc;
 
@@ -854,10 +863,10 @@ ccl_device_inline float bsdf_beckmann_aniso_G1(
   return ((2.181f * a + 3.535f) * a) / ((2.577f * a + 2.276f) * a + 1.0f);
 }
 
-ccl_device float3 bsdf_microfacet_beckmann_eval_reflect(const ShaderClosure *sc,
+ccl_device float3 bsdf_microfacet_beckmann_eval_reflect(METAL_ASQ_THREAD const ShaderClosure *sc,
                                                         const float3 I,
                                                         const float3 omega_in,
-                                                        float *pdf)
+                                                        METAL_ASQ_THREAD float *pdf)
 {
   const MicrofacetBsdf *bsdf = (const MicrofacetBsdf *)sc;
   float alpha_x = bsdf->alpha_x;
@@ -895,7 +904,7 @@ ccl_device float3 bsdf_microfacet_beckmann_eval_reflect(const ShaderClosure *sc,
     else {
       /* anisotropic */
       float3 X, Y, Z = N;
-      make_orthonormals_tangent(Z, bsdf->T, &X, &Y);
+      make_orthonormals_tangent(Z, bsdf->t, &X, &Y);
 
       /* distribution */
       float3 local_m = make_float3(dot(X, m), dot(Y, m), dot(Z, m));
@@ -933,10 +942,10 @@ ccl_device float3 bsdf_microfacet_beckmann_eval_reflect(const ShaderClosure *sc,
   return make_float3(0.0f, 0.0f, 0.0f);
 }
 
-ccl_device float3 bsdf_microfacet_beckmann_eval_transmit(const ShaderClosure *sc,
+ccl_device float3 bsdf_microfacet_beckmann_eval_transmit(METAL_ASQ_THREAD const ShaderClosure *sc,
                                                          const float3 I,
                                                          const float3 omega_in,
-                                                         float *pdf)
+                                                         METAL_ASQ_THREAD float *pdf)
 {
   const MicrofacetBsdf *bsdf = (const MicrofacetBsdf *)sc;
   float alpha_x = bsdf->alpha_x;
@@ -988,19 +997,19 @@ ccl_device float3 bsdf_microfacet_beckmann_eval_transmit(const ShaderClosure *sc
   return make_float3(out, out, out);
 }
 
-ccl_device int bsdf_microfacet_beckmann_sample(const KernelGlobals *kg,
-                                               const ShaderClosure *sc,
+ccl_device int bsdf_microfacet_beckmann_sample(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                               METAL_ASQ_THREAD const ShaderClosure *sc,
                                                float3 Ng,
                                                float3 I,
                                                float3 dIdx,
                                                float3 dIdy,
                                                float randu,
                                                float randv,
-                                               float3 *eval,
-                                               float3 *omega_in,
-                                               float3 *domega_in_dx,
-                                               float3 *domega_in_dy,
-                                               float *pdf)
+                                               METAL_ASQ_THREAD float3 *eval,
+                                               METAL_ASQ_THREAD float3 *omega_in,
+                                               METAL_ASQ_THREAD float3 *domega_in_dx,
+                                               METAL_ASQ_THREAD float3 *domega_in_dy,
+                                               METAL_ASQ_THREAD float *pdf)
 {
   const MicrofacetBsdf *bsdf = (const MicrofacetBsdf *)sc;
   float alpha_x = bsdf->alpha_x;
@@ -1016,7 +1025,7 @@ ccl_device int bsdf_microfacet_beckmann_sample(const KernelGlobals *kg,
     if (alpha_x == alpha_y)
       make_orthonormals(Z, &X, &Y);
     else
-      make_orthonormals_tangent(Z, bsdf->T, &X, &Y);
+      make_orthonormals_tangent(Z, bsdf->t, &X, &Y);
 
     /* importance sampling with distribution of visible normals. vectors are
      * transformed to local space before and after */

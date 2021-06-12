@@ -22,10 +22,19 @@
 
 #pragma once
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 CCL_NAMESPACE_BEGIN
 
 /* normal on triangle  */
-ccl_device_inline float3 triangle_normal(const KernelGlobals *kg, ShaderData *sd)
+ccl_device_inline float3 triangle_normal(METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd)
 {
   /* load triangle vertices */
   const uint4 tri_vindex = kernel_tex_fetch(__tri_vindex, sd->prim);
@@ -43,14 +52,14 @@ ccl_device_inline float3 triangle_normal(const KernelGlobals *kg, ShaderData *sd
 }
 
 /* point and normal on triangle  */
-ccl_device_inline void triangle_point_normal(const KernelGlobals *kg,
+ccl_device_inline void triangle_point_normal(METAL_ASQ_DEVICE const KernelGlobals *kg,
                                              int object,
                                              int prim,
                                              float u,
                                              float v,
-                                             float3 *P,
-                                             float3 *Ng,
-                                             int *shader)
+                                             METAL_ASQ_THREAD float3 *P,
+                                             METAL_ASQ_THREAD float3 *Ng,
+                                             METAL_ASQ_THREAD int *shader)
 {
   /* load triangle vertices */
   const uint4 tri_vindex = kernel_tex_fetch(__tri_vindex, prim);
@@ -75,7 +84,7 @@ ccl_device_inline void triangle_point_normal(const KernelGlobals *kg,
 
 /* Triangle vertex locations */
 
-ccl_device_inline void triangle_vertices(const KernelGlobals *kg, int prim, float3 P[3])
+ccl_device_inline void triangle_vertices(METAL_ASQ_DEVICE const KernelGlobals *kg, int prim, METAL_ASQ_THREAD float3 P[3])
 {
   const uint4 tri_vindex = kernel_tex_fetch(__tri_vindex, prim);
   P[0] = float4_to_float3(kernel_tex_fetch(__prim_tri_verts, tri_vindex.w + 0));
@@ -86,7 +95,7 @@ ccl_device_inline void triangle_vertices(const KernelGlobals *kg, int prim, floa
 /* Interpolate smooth vertex normal from vertices */
 
 ccl_device_inline float3
-triangle_smooth_normal(const KernelGlobals *kg, float3 Ng, int prim, float u, float v)
+triangle_smooth_normal(METAL_ASQ_DEVICE const KernelGlobals *kg, float3 Ng, int prim, float u, float v)
 {
   /* load triangle vertices */
   const uint4 tri_vindex = kernel_tex_fetch(__tri_vindex, prim);
@@ -101,10 +110,10 @@ triangle_smooth_normal(const KernelGlobals *kg, float3 Ng, int prim, float u, fl
 
 /* Ray differentials on triangle */
 
-ccl_device_inline void triangle_dPdudv(const KernelGlobals *kg,
+ccl_device_inline void triangle_dPdudv(METAL_ASQ_DEVICE const KernelGlobals *kg,
                                        int prim,
-                                       ccl_addr_space float3 *dPdu,
-                                       ccl_addr_space float3 *dPdv)
+                                       METAL_ASQ_THREAD ccl_addr_space float3 *dPdu,
+                                       METAL_ASQ_THREAD ccl_addr_space float3 *dPdv)
 {
   /* fetch triangle vertex coordinates */
   const uint4 tri_vindex = kernel_tex_fetch(__tri_vindex, prim);
@@ -119,11 +128,11 @@ ccl_device_inline void triangle_dPdudv(const KernelGlobals *kg,
 
 /* Reading attributes on various triangle elements */
 
-ccl_device float triangle_attribute_float(const KernelGlobals *kg,
-                                          const ShaderData *sd,
+ccl_device float triangle_attribute_float(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                          METAL_ASQ_DEVICE const ShaderData *sd,
                                           const AttributeDescriptor desc,
-                                          float *dx,
-                                          float *dy)
+                                          METAL_ASQ_THREAD float *dx,
+                                          METAL_ASQ_THREAD float *dy)
 {
   if (desc.element & (ATTR_ELEMENT_VERTEX | ATTR_ELEMENT_VERTEX_MOTION | ATTR_ELEMENT_CORNER)) {
     float f0, f1, f2;
@@ -169,11 +178,11 @@ ccl_device float triangle_attribute_float(const KernelGlobals *kg,
   }
 }
 
-ccl_device float2 triangle_attribute_float2(const KernelGlobals *kg,
-                                            const ShaderData *sd,
+ccl_device float2 triangle_attribute_float2(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                            METAL_ASQ_DEVICE const ShaderData *sd,
                                             const AttributeDescriptor desc,
-                                            float2 *dx,
-                                            float2 *dy)
+                                            METAL_ASQ_THREAD float2 *dx,
+                                            METAL_ASQ_THREAD float2 *dy)
 {
   if (desc.element & (ATTR_ELEMENT_VERTEX | ATTR_ELEMENT_VERTEX_MOTION | ATTR_ELEMENT_CORNER)) {
     float2 f0, f1, f2;
@@ -219,11 +228,11 @@ ccl_device float2 triangle_attribute_float2(const KernelGlobals *kg,
   }
 }
 
-ccl_device float3 triangle_attribute_float3(const KernelGlobals *kg,
-                                            const ShaderData *sd,
+ccl_device float3 triangle_attribute_float3(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                            METAL_ASQ_DEVICE const ShaderData *sd,
                                             const AttributeDescriptor desc,
-                                            float3 *dx,
-                                            float3 *dy)
+                                            METAL_ASQ_THREAD float3 *dx,
+                                            METAL_ASQ_THREAD float3 *dy)
 {
   if (desc.element & (ATTR_ELEMENT_VERTEX | ATTR_ELEMENT_VERTEX_MOTION | ATTR_ELEMENT_CORNER)) {
     float3 f0, f1, f2;
@@ -269,11 +278,11 @@ ccl_device float3 triangle_attribute_float3(const KernelGlobals *kg,
   }
 }
 
-ccl_device float4 triangle_attribute_float4(const KernelGlobals *kg,
-                                            const ShaderData *sd,
+ccl_device float4 triangle_attribute_float4(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                            METAL_ASQ_DEVICE const ShaderData *sd,
                                             const AttributeDescriptor desc,
-                                            float4 *dx,
-                                            float4 *dy)
+                                            METAL_ASQ_THREAD float4 *dx,
+                                            METAL_ASQ_THREAD float4 *dy)
 {
   if (desc.element & (ATTR_ELEMENT_VERTEX | ATTR_ELEMENT_VERTEX_MOTION | ATTR_ELEMENT_CORNER |
                       ATTR_ELEMENT_CORNER_BYTE)) {

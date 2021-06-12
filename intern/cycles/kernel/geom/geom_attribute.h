@@ -33,7 +33,9 @@ CCL_NAMESPACE_BEGIN
 #define METAL_ASQ_DEVICE
 #endif
 
+#if !defined __KERNEL_METAL__
 ccl_device_inline uint subd_triangle_patch(METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE const ShaderData *sd);
+#endif
 
 ccl_device_inline uint attribute_primitive_type( METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE const ShaderData *sd)
 {

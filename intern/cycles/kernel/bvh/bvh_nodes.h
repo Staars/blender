@@ -14,9 +14,19 @@
  * limitations under the License.
  */
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
+
 // TODO(sergey): Look into avoid use of full Transform and use 3x3 matrix and
 // 3-vector which might be faster.
-ccl_device_forceinline Transform bvh_unaligned_node_fetch_space(const KernelGlobals *kg,
+ccl_device_forceinline Transform bvh_unaligned_node_fetch_space(METAL_ASQ_DEVICE const KernelGlobals *kg,
                                                                 int node_addr,
                                                                 int child)
 {
@@ -28,13 +38,13 @@ ccl_device_forceinline Transform bvh_unaligned_node_fetch_space(const KernelGlob
   return space;
 }
 
-ccl_device_forceinline int bvh_aligned_node_intersect(const KernelGlobals *kg,
+ccl_device_forceinline int bvh_aligned_node_intersect(METAL_ASQ_DEVICE const KernelGlobals *kg,
                                                       const float3 P,
                                                       const float3 idir,
                                                       const float t,
                                                       const int node_addr,
                                                       const uint visibility,
-                                                      float dist[2])
+                                                      METAL_ASQ_THREAD float dist[2])
 {
 
   /* fetch node data */
@@ -76,13 +86,13 @@ ccl_device_forceinline int bvh_aligned_node_intersect(const KernelGlobals *kg,
 #endif
 }
 
-ccl_device_forceinline bool bvh_unaligned_node_intersect_child(const KernelGlobals *kg,
+ccl_device_forceinline bool bvh_unaligned_node_intersect_child(METAL_ASQ_DEVICE const KernelGlobals *kg,
                                                                const float3 P,
                                                                const float3 dir,
                                                                const float t,
                                                                int node_addr,
                                                                int child,
-                                                               float dist[2])
+                                                               METAL_ASQ_THREAD float dist[2])
 {
   Transform space = bvh_unaligned_node_fetch_space(kg, node_addr, child);
   float3 aligned_dir = transform_direction(&space, dir);
@@ -102,14 +112,14 @@ ccl_device_forceinline bool bvh_unaligned_node_intersect_child(const KernelGloba
   return tnear <= tfar;
 }
 
-ccl_device_forceinline int bvh_unaligned_node_intersect(const KernelGlobals *kg,
+ccl_device_forceinline int bvh_unaligned_node_intersect(METAL_ASQ_DEVICE const KernelGlobals *kg,
                                                         const float3 P,
                                                         const float3 dir,
                                                         const float3 idir,
                                                         const float t,
                                                         const int node_addr,
                                                         const uint visibility,
-                                                        float dist[2])
+                                                        METAL_ASQ_THREAD float dist[2])
 {
   int mask = 0;
 #ifdef __VISIBILITY_FLAG__
@@ -134,14 +144,14 @@ ccl_device_forceinline int bvh_unaligned_node_intersect(const KernelGlobals *kg,
   return mask;
 }
 
-ccl_device_forceinline int bvh_node_intersect(const KernelGlobals *kg,
+ccl_device_forceinline int bvh_node_intersect(METAL_ASQ_DEVICE const KernelGlobals *kg,
                                               const float3 P,
                                               const float3 dir,
                                               const float3 idir,
                                               const float t,
                                               const int node_addr,
                                               const uint visibility,
-                                              float dist[2])
+                                              METAL_ASQ_THREAD float dist[2])
 {
   float4 node = kernel_tex_fetch(__bvh_nodes, node_addr);
   if (__float_as_uint(node.x) & PATH_RAY_NODE_UNALIGNED) {

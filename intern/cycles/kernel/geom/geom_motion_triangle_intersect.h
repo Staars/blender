@@ -27,6 +27,15 @@
 
 #pragma once
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 CCL_NAMESPACE_BEGIN
 
 /* Refine triangle intersection to more precise hit point. For rays that travel
@@ -34,14 +43,14 @@ CCL_NAMESPACE_BEGIN
  * a closer distance.
  */
 
-ccl_device_inline float3 motion_triangle_refine(const KernelGlobals *kg,
-                                                ShaderData *sd,
+ccl_device_inline float3 motion_triangle_refine(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                                METAL_ASQ_DEVICE ShaderData *sd,
                                                 float3 P,
                                                 float3 D,
                                                 float t,
                                                 const int isect_object,
                                                 const int isect_prim,
-                                                float3 verts[3])
+                                                METAL_ASQ_THREAD float3 verts[3])
 {
 #ifdef __INTERSECTION_REFINE__
   if (isect_object != OBJECT_NONE) {
@@ -92,14 +101,14 @@ ccl_device_noinline
 ccl_device_inline
 #  endif
     float3
-    motion_triangle_refine_local(const KernelGlobals *kg,
-                                 ShaderData *sd,
+    motion_triangle_refine_local(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                 METAL_ASQ_DEVICE ShaderData *sd,
                                  float3 P,
                                  float3 D,
                                  float t,
                                  const int isect_object,
                                  const int isect_prim,
-                                 float3 verts[3])
+                                 METAL_ASQ_THREAD float3 verts[3])
 {
 #  ifdef __KERNEL_OPTIX__
   /* t is always in world space with OptiX. */
@@ -145,8 +154,8 @@ ccl_device_inline
  * time and do a ray intersection with the resulting triangle.
  */
 
-ccl_device_inline bool motion_triangle_intersect(const KernelGlobals *kg,
-                                                 Intersection *isect,
+ccl_device_inline bool motion_triangle_intersect(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                                 METAL_ASQ_THREAD Intersection *isect,
                                                  float3 P,
                                                  float3 dir,
                                                  float tmax,
@@ -201,8 +210,8 @@ ccl_device_inline bool motion_triangle_intersect(const KernelGlobals *kg,
  * Returns whether traversal should be stopped.
  */
 #ifdef __BVH_LOCAL__
-ccl_device_inline bool motion_triangle_intersect_local(const KernelGlobals *kg,
-                                                       LocalIntersection *local_isect,
+ccl_device_inline bool motion_triangle_intersect_local(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                                       METAL_ASQ_THREAD LocalIntersection *local_isect,
                                                        float3 P,
                                                        float3 dir,
                                                        float time,
@@ -210,7 +219,7 @@ ccl_device_inline bool motion_triangle_intersect_local(const KernelGlobals *kg,
                                                        int local_object,
                                                        int prim_addr,
                                                        float tmax,
-                                                       uint *lcg_state,
+                                                       METAL_ASQ_THREAD uint *lcg_state,
                                                        int max_hits)
 {
   /* Only intersect with matching object, for instanced objects we

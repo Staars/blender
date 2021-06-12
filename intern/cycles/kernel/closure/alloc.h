@@ -16,9 +16,17 @@
 
 #pragma once
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
 CCL_NAMESPACE_BEGIN
 
-ccl_device ShaderClosure *closure_alloc(ShaderData *sd, int size, ClosureType type, float3 weight)
+METAL_ASQ_DEVICE ccl_device ShaderClosure *closure_alloc(METAL_ASQ_DEVICE ShaderData *sd, int size, ClosureType type, float3 weight)
 {
   kernel_assert(size <= sizeof(ShaderClosure));
 
@@ -36,7 +44,7 @@ ccl_device ShaderClosure *closure_alloc(ShaderData *sd, int size, ClosureType ty
   return sc;
 }
 
-ccl_device ccl_addr_space void *closure_alloc_extra(ShaderData *sd, int size)
+METAL_ASQ_DEVICE ccl_device ccl_addr_space void *closure_alloc_extra(METAL_ASQ_DEVICE ShaderData *sd, int size)
 {
   /* Allocate extra space for closure that need more parameters. We allocate
    * in chunks of sizeof(ShaderClosure) starting from the end of the closure
@@ -57,7 +65,7 @@ ccl_device ccl_addr_space void *closure_alloc_extra(ShaderData *sd, int size)
   return (ccl_addr_space void *)(sd->closure + sd->num_closure + sd->num_closure_left);
 }
 
-ccl_device_inline ShaderClosure *bsdf_alloc(ShaderData *sd, int size, float3 weight)
+METAL_ASQ_DEVICE ccl_device_inline ShaderClosure *bsdf_alloc(METAL_ASQ_DEVICE ShaderData *sd, int size, float3 weight)
 {
   kernel_assert(isfinite3_safe(weight));
 
@@ -80,10 +88,10 @@ ccl_device_inline ShaderClosure *bsdf_alloc(ShaderData *sd, int size, float3 wei
 }
 
 #ifdef __OSL__
-ccl_device_inline ShaderClosure *bsdf_alloc_osl(ShaderData *sd,
+METAL_ASQ_DEVICE ccl_device_inline ShaderClosure *bsdf_alloc_osl(METAL_ASQ_DEVICE ShaderData *sd,
                                                 int size,
                                                 float3 weight,
-                                                void *data)
+                                                METAL_ASQ_THREAD void *data)
 {
   kernel_assert(isfinite3_safe(weight));
 

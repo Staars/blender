@@ -23,6 +23,15 @@
 #  define NODE_INTERSECT bvh_aligned_node_intersect
 #endif
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 /* This is a template BVH traversal function for finding local intersections
  * around the shading point, for subsurface scattering and bevel. We disable
  * various features for performance, and for instanced objects avoid traversing
@@ -36,11 +45,11 @@ ccl_device
 #else
 ccl_device_inline
 #endif
-    bool BVH_FUNCTION_FULL_NAME(BVH)(const KernelGlobals *kg,
-                                     const Ray *ray,
-                                     LocalIntersection *local_isect,
+    bool BVH_FUNCTION_FULL_NAME(BVH)(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                     METAL_ASQ_THREAD const Ray *ray,
+                                     METAL_ASQ_THREAD LocalIntersection *local_isect,
                                      int local_object,
-                                     uint *lcg_state,
+                                     METAL_ASQ_THREAD uint *lcg_state,
                                      int max_hits)
 {
   /* todo:
@@ -196,11 +205,11 @@ ccl_device_inline
   return false;
 }
 
-ccl_device_inline bool BVH_FUNCTION_NAME(const KernelGlobals *kg,
-                                         const Ray *ray,
-                                         LocalIntersection *local_isect,
+ccl_device_inline bool BVH_FUNCTION_NAME(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                         METAL_ASQ_THREAD const Ray *ray,
+                                         METAL_ASQ_THREAD LocalIntersection *local_isect,
                                          int local_object,
-                                         uint *lcg_state,
+                                         METAL_ASQ_THREAD uint *lcg_state,
                                          int max_hits)
 {
   return BVH_FUNCTION_FULL_NAME(BVH)(kg, ray, local_isect, local_object, lcg_state, max_hits);

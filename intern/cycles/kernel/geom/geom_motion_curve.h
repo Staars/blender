@@ -14,6 +14,14 @@
 
 #pragma once
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
 CCL_NAMESPACE_BEGIN
 
 /* Motion Curve Primitive
@@ -27,10 +35,10 @@ CCL_NAMESPACE_BEGIN
 
 #ifdef __HAIR__
 
-ccl_device_inline int find_attribute_curve_motion(const KernelGlobals *kg,
+ccl_device_inline int find_attribute_curve_motion(METAL_ASQ_DEVICE const KernelGlobals *kg,
                                                   int object,
                                                   uint id,
-                                                  AttributeElement *elem)
+                                                  METAL_ASQ_THREAD AttributeElement *elem)
 {
   /* todo: find a better (faster) solution for this, maybe store offset per object.
    *
@@ -52,14 +60,14 @@ ccl_device_inline int find_attribute_curve_motion(const KernelGlobals *kg,
   return (attr_map.y == ATTR_ELEMENT_NONE) ? (int)ATTR_STD_NOT_FOUND : (int)attr_map.z;
 }
 
-ccl_device_inline void motion_curve_keys_for_step_linear(const KernelGlobals *kg,
+ccl_device_inline void motion_curve_keys_for_step_linear(METAL_ASQ_DEVICE const KernelGlobals *kg,
                                                          int offset,
                                                          int numkeys,
                                                          int numsteps,
                                                          int step,
                                                          int k0,
                                                          int k1,
-                                                         float4 keys[2])
+                                                         METAL_ASQ_THREAD float4 keys[2])
 {
   if (step == numsteps) {
     /* center step: regular key location */
@@ -80,7 +88,7 @@ ccl_device_inline void motion_curve_keys_for_step_linear(const KernelGlobals *kg
 
 /* return 2 curve key locations */
 ccl_device_inline void motion_curve_keys_linear(
-    const KernelGlobals *kg, int object, int prim, float time, int k0, int k1, float4 keys[2])
+                                                METAL_ASQ_DEVICE const KernelGlobals *kg, int object, int prim, float time, int k0, int k1, METAL_ASQ_THREAD float4 keys[2])
 {
   /* get motion info */
   int numsteps, numkeys;
@@ -107,7 +115,7 @@ ccl_device_inline void motion_curve_keys_linear(
   keys[1] = (1.0f - t) * keys[1] + t * next_keys[1];
 }
 
-ccl_device_inline void motion_curve_keys_for_step(const KernelGlobals *kg,
+ccl_device_inline void motion_curve_keys_for_step(METAL_ASQ_DEVICE const KernelGlobals *kg,
                                                   int offset,
                                                   int numkeys,
                                                   int numsteps,
@@ -116,7 +124,7 @@ ccl_device_inline void motion_curve_keys_for_step(const KernelGlobals *kg,
                                                   int k1,
                                                   int k2,
                                                   int k3,
-                                                  float4 keys[4])
+                                                  METAL_ASQ_THREAD float4 keys[4])
 {
   if (step == numsteps) {
     /* center step: regular key location */
@@ -140,7 +148,7 @@ ccl_device_inline void motion_curve_keys_for_step(const KernelGlobals *kg,
 }
 
 /* return 2 curve key locations */
-ccl_device_inline void motion_curve_keys(const KernelGlobals *kg,
+ccl_device_inline void motion_curve_keys(METAL_ASQ_DEVICE const KernelGlobals *kg,
                                          int object,
                                          int prim,
                                          float time,
@@ -148,7 +156,7 @@ ccl_device_inline void motion_curve_keys(const KernelGlobals *kg,
                                          int k1,
                                          int k2,
                                          int k3,
-                                         float4 keys[4])
+                                         METAL_ASQ_THREAD float4 keys[4])
 {
   /* get motion info */
   int numsteps, numkeys;

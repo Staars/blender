@@ -16,6 +16,15 @@
 
 #pragma once
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 CCL_NAMESPACE_BEGIN
 
 typedef ccl_addr_space struct OrenNayarBsdf {
@@ -28,7 +37,7 @@ typedef ccl_addr_space struct OrenNayarBsdf {
 
 static_assert(sizeof(ShaderClosure) >= sizeof(OrenNayarBsdf), "OrenNayarBsdf is too large!");
 
-ccl_device float3 bsdf_oren_nayar_get_intensity(const ShaderClosure *sc,
+ccl_device float3 bsdf_oren_nayar_get_intensity(METAL_ASQ_THREAD const ShaderClosure *sc,
                                                 float3 n,
                                                 float3 v,
                                                 float3 l)
@@ -44,7 +53,7 @@ ccl_device float3 bsdf_oren_nayar_get_intensity(const ShaderClosure *sc,
   return make_float3(is, is, is);
 }
 
-ccl_device int bsdf_oren_nayar_setup(OrenNayarBsdf *bsdf)
+ccl_device int bsdf_oren_nayar_setup(METAL_ASQ_THREAD OrenNayarBsdf *bsdf)
 {
   float sigma = bsdf->roughness;
 
@@ -60,7 +69,7 @@ ccl_device int bsdf_oren_nayar_setup(OrenNayarBsdf *bsdf)
   return SD_BSDF | SD_BSDF_HAS_EVAL;
 }
 
-ccl_device bool bsdf_oren_nayar_merge(const ShaderClosure *a, const ShaderClosure *b)
+ccl_device bool bsdf_oren_nayar_merge(METAL_ASQ_THREAD const ShaderClosure *a, METAL_ASQ_THREAD const ShaderClosure *b)
 {
   const OrenNayarBsdf *bsdf_a = (const OrenNayarBsdf *)a;
   const OrenNayarBsdf *bsdf_b = (const OrenNayarBsdf *)b;
@@ -68,10 +77,10 @@ ccl_device bool bsdf_oren_nayar_merge(const ShaderClosure *a, const ShaderClosur
   return (isequal_float3(bsdf_a->N, bsdf_b->N)) && (bsdf_a->roughness == bsdf_b->roughness);
 }
 
-ccl_device float3 bsdf_oren_nayar_eval_reflect(const ShaderClosure *sc,
+ccl_device float3 bsdf_oren_nayar_eval_reflect(METAL_ASQ_THREAD const ShaderClosure *sc,
                                                const float3 I,
                                                const float3 omega_in,
-                                               float *pdf)
+                                               METAL_ASQ_THREAD float *pdf)
 {
   const OrenNayarBsdf *bsdf = (const OrenNayarBsdf *)sc;
   if (dot(bsdf->N, omega_in) > 0.0f) {
@@ -84,26 +93,26 @@ ccl_device float3 bsdf_oren_nayar_eval_reflect(const ShaderClosure *sc,
   }
 }
 
-ccl_device float3 bsdf_oren_nayar_eval_transmit(const ShaderClosure *sc,
+ccl_device float3 bsdf_oren_nayar_eval_transmit(METAL_ASQ_THREAD const ShaderClosure *sc,
                                                 const float3 I,
                                                 const float3 omega_in,
-                                                float *pdf)
+                                                METAL_ASQ_THREAD float *pdf)
 {
   return make_float3(0.0f, 0.0f, 0.0f);
 }
 
-ccl_device int bsdf_oren_nayar_sample(const ShaderClosure *sc,
+ccl_device int bsdf_oren_nayar_sample(METAL_ASQ_THREAD const ShaderClosure *sc,
                                       float3 Ng,
                                       float3 I,
                                       float3 dIdx,
                                       float3 dIdy,
                                       float randu,
                                       float randv,
-                                      float3 *eval,
-                                      float3 *omega_in,
-                                      float3 *domega_in_dx,
-                                      float3 *domega_in_dy,
-                                      float *pdf)
+                                      METAL_ASQ_THREAD float3 *eval,
+                                      METAL_ASQ_THREAD float3 *omega_in,
+                                      METAL_ASQ_THREAD float3 *domega_in_dx,
+                                      METAL_ASQ_THREAD float3 *domega_in_dy,
+                                      METAL_ASQ_THREAD float *pdf)
 {
   const OrenNayarBsdf *bsdf = (const OrenNayarBsdf *)sc;
   sample_uniform_hemisphere(bsdf->N, randu, randv, omega_in, pdf);

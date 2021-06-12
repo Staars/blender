@@ -32,9 +32,19 @@
 
 #pragma once
 
+
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 CCL_NAMESPACE_BEGIN
 
-ccl_device void bsdf_transparent_setup(ShaderData *sd, const float3 weight, int path_flag)
+ccl_device void bsdf_transparent_setup(METAL_ASQ_DEVICE ShaderData *sd, const float3 weight, int path_flag)
 {
   /* Check cutoff weight. */
   float sample_weight = fabsf(average(weight));
@@ -81,34 +91,34 @@ ccl_device void bsdf_transparent_setup(ShaderData *sd, const float3 weight, int 
   }
 }
 
-ccl_device float3 bsdf_transparent_eval_reflect(const ShaderClosure *sc,
+ccl_device float3 bsdf_transparent_eval_reflect(METAL_ASQ_THREAD const ShaderClosure *sc,
                                                 const float3 I,
                                                 const float3 omega_in,
-                                                float *pdf)
+                                                METAL_ASQ_THREAD float *pdf)
 {
   return make_float3(0.0f, 0.0f, 0.0f);
 }
 
-ccl_device float3 bsdf_transparent_eval_transmit(const ShaderClosure *sc,
+ccl_device float3 bsdf_transparent_eval_transmit(METAL_ASQ_THREAD const ShaderClosure *sc,
                                                  const float3 I,
                                                  const float3 omega_in,
-                                                 float *pdf)
+                                                 METAL_ASQ_THREAD float *pdf)
 {
   return make_float3(0.0f, 0.0f, 0.0f);
 }
 
-ccl_device int bsdf_transparent_sample(const ShaderClosure *sc,
+ccl_device int bsdf_transparent_sample(METAL_ASQ_THREAD const ShaderClosure *sc,
                                        float3 Ng,
                                        float3 I,
                                        float3 dIdx,
                                        float3 dIdy,
                                        float randu,
                                        float randv,
-                                       float3 *eval,
-                                       float3 *omega_in,
-                                       float3 *domega_in_dx,
-                                       float3 *domega_in_dy,
-                                       float *pdf)
+                                       METAL_ASQ_THREAD float3 *eval,
+                                       METAL_ASQ_THREAD float3 *omega_in,
+                                       METAL_ASQ_THREAD float3 *domega_in_dx,
+                                       METAL_ASQ_THREAD float3 *domega_in_dy,
+                                       METAL_ASQ_THREAD float *pdf)
 {
   // only one direction is possible
   *omega_in = -I;

@@ -32,6 +32,16 @@
 
 #pragma once
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
+
 CCL_NAMESPACE_BEGIN
 
 typedef ccl_addr_space struct DiffuseBsdf {
@@ -42,13 +52,13 @@ static_assert(sizeof(ShaderClosure) >= sizeof(DiffuseBsdf), "DiffuseBsdf is too 
 
 /* DIFFUSE */
 
-ccl_device int bsdf_diffuse_setup(DiffuseBsdf *bsdf)
+ccl_device int bsdf_diffuse_setup(METAL_ASQ_THREAD DiffuseBsdf *bsdf)
 {
   bsdf->type = CLOSURE_BSDF_DIFFUSE_ID;
   return SD_BSDF | SD_BSDF_HAS_EVAL;
 }
 
-ccl_device bool bsdf_diffuse_merge(const ShaderClosure *a, const ShaderClosure *b)
+ccl_device bool bsdf_diffuse_merge(METAL_ASQ_THREAD const ShaderClosure *a, METAL_ASQ_THREAD const ShaderClosure *b)
 {
   const DiffuseBsdf *bsdf_a = (const DiffuseBsdf *)a;
   const DiffuseBsdf *bsdf_b = (const DiffuseBsdf *)b;
@@ -56,10 +66,10 @@ ccl_device bool bsdf_diffuse_merge(const ShaderClosure *a, const ShaderClosure *
   return (isequal_float3(bsdf_a->N, bsdf_b->N));
 }
 
-ccl_device float3 bsdf_diffuse_eval_reflect(const ShaderClosure *sc,
+ccl_device float3 bsdf_diffuse_eval_reflect(METAL_ASQ_THREAD const ShaderClosure *sc,
                                             const float3 I,
                                             const float3 omega_in,
-                                            float *pdf)
+                                            METAL_ASQ_THREAD float *pdf)
 {
   const DiffuseBsdf *bsdf = (const DiffuseBsdf *)sc;
   float3 N = bsdf->N;
@@ -69,26 +79,26 @@ ccl_device float3 bsdf_diffuse_eval_reflect(const ShaderClosure *sc,
   return make_float3(cos_pi, cos_pi, cos_pi);
 }
 
-ccl_device float3 bsdf_diffuse_eval_transmit(const ShaderClosure *sc,
+ccl_device float3 bsdf_diffuse_eval_transmit(METAL_ASQ_THREAD const ShaderClosure *sc,
                                              const float3 I,
                                              const float3 omega_in,
-                                             float *pdf)
+                                             METAL_ASQ_THREAD float *pdf)
 {
   return make_float3(0.0f, 0.0f, 0.0f);
 }
 
-ccl_device int bsdf_diffuse_sample(const ShaderClosure *sc,
+ccl_device int bsdf_diffuse_sample(METAL_ASQ_THREAD const ShaderClosure *sc,
                                    float3 Ng,
                                    float3 I,
                                    float3 dIdx,
                                    float3 dIdy,
                                    float randu,
                                    float randv,
-                                   float3 *eval,
-                                   float3 *omega_in,
-                                   float3 *domega_in_dx,
-                                   float3 *domega_in_dy,
-                                   float *pdf)
+                                   METAL_ASQ_THREAD float3 *eval,
+                                   METAL_ASQ_THREAD float3 *omega_in,
+                                   METAL_ASQ_THREAD float3 *domega_in_dx,
+                                   METAL_ASQ_THREAD float3 *domega_in_dy,
+                                   METAL_ASQ_THREAD float *pdf)
 {
   const DiffuseBsdf *bsdf = (const DiffuseBsdf *)sc;
   float3 N = bsdf->N;
@@ -112,24 +122,24 @@ ccl_device int bsdf_diffuse_sample(const ShaderClosure *sc,
 
 /* TRANSLUCENT */
 
-ccl_device int bsdf_translucent_setup(DiffuseBsdf *bsdf)
+ccl_device int bsdf_translucent_setup(METAL_ASQ_THREAD DiffuseBsdf *bsdf)
 {
   bsdf->type = CLOSURE_BSDF_TRANSLUCENT_ID;
   return SD_BSDF | SD_BSDF_HAS_EVAL;
 }
 
-ccl_device float3 bsdf_translucent_eval_reflect(const ShaderClosure *sc,
+ccl_device float3 bsdf_translucent_eval_reflect(METAL_ASQ_THREAD const ShaderClosure *sc,
                                                 const float3 I,
                                                 const float3 omega_in,
-                                                float *pdf)
+                                                METAL_ASQ_THREAD float *pdf)
 {
   return make_float3(0.0f, 0.0f, 0.0f);
 }
 
-ccl_device float3 bsdf_translucent_eval_transmit(const ShaderClosure *sc,
+ccl_device float3 bsdf_translucent_eval_transmit(METAL_ASQ_THREAD const ShaderClosure *sc,
                                                  const float3 I,
                                                  const float3 omega_in,
-                                                 float *pdf)
+                                                 METAL_ASQ_THREAD float *pdf)
 {
   const DiffuseBsdf *bsdf = (const DiffuseBsdf *)sc;
   float3 N = bsdf->N;
@@ -139,18 +149,18 @@ ccl_device float3 bsdf_translucent_eval_transmit(const ShaderClosure *sc,
   return make_float3(cos_pi, cos_pi, cos_pi);
 }
 
-ccl_device int bsdf_translucent_sample(const ShaderClosure *sc,
+ccl_device int bsdf_translucent_sample(METAL_ASQ_THREAD const ShaderClosure *sc,
                                        float3 Ng,
                                        float3 I,
                                        float3 dIdx,
                                        float3 dIdy,
                                        float randu,
                                        float randv,
-                                       float3 *eval,
-                                       float3 *omega_in,
-                                       float3 *domega_in_dx,
-                                       float3 *domega_in_dy,
-                                       float *pdf)
+                                       METAL_ASQ_THREAD float3 *eval,
+                                       METAL_ASQ_THREAD float3 *omega_in,
+                                       METAL_ASQ_THREAD float3 *domega_in_dx,
+                                       METAL_ASQ_THREAD float3 *domega_in_dy,
+                                       METAL_ASQ_THREAD float *pdf)
 {
   const DiffuseBsdf *bsdf = (const DiffuseBsdf *)sc;
   float3 N = bsdf->N;

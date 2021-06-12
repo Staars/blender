@@ -17,6 +17,15 @@
 
 #pragma once
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 CCL_NAMESPACE_BEGIN
 
 /* Curve primitive intersection functions.
@@ -33,7 +42,7 @@ CCL_NAMESPACE_BEGIN
 
 /* Catmull-rom curve evaluation. */
 
-ccl_device_inline float4 catmull_rom_basis_eval(const float4 curve[4], float u)
+ccl_device_inline float4 catmull_rom_basis_eval(METAL_ASQ_THREAD const float4 curve[4], float u)
 {
   const float t = u;
   const float s = 1.0f - u;
@@ -44,7 +53,7 @@ ccl_device_inline float4 catmull_rom_basis_eval(const float4 curve[4], float u)
   return 0.5f * (curve[0] * n0 + curve[1] * n1 + curve[2] * n2 + curve[3] * n3);
 }
 
-ccl_device_inline float4 catmull_rom_basis_derivative(const float4 curve[4], float u)
+ccl_device_inline float4 catmull_rom_basis_derivative(METAL_ASQ_THREAD const float4 curve[4], float u)
 {
   const float t = u;
   const float s = 1.0f - u;
@@ -55,7 +64,7 @@ ccl_device_inline float4 catmull_rom_basis_derivative(const float4 curve[4], flo
   return 0.5f * (curve[0] * n0 + curve[1] * n1 + curve[2] * n2 + curve[3] * n3);
 }
 
-ccl_device_inline float4 catmull_rom_basis_derivative2(const float4 curve[4], float u)
+ccl_device_inline float4 catmull_rom_basis_derivative2(METAL_ASQ_THREAD const float4 curve[4], float u)
 {
 
   const float t = u;
@@ -86,11 +95,11 @@ ccl_device_inline bool cylinder_intersect(const float3 cylinder_start,
                                           const float3 cylinder_end,
                                           const float cylinder_radius,
                                           const float3 ray_dir,
-                                          float2 *t_o,
-                                          float *u0_o,
-                                          float3 *Ng0_o,
-                                          float *u1_o,
-                                          float3 *Ng1_o)
+                                          METAL_ASQ_THREAD float2 *t_o,
+                                          METAL_ASQ_THREAD float *u0_o,
+                                          METAL_ASQ_THREAD float3 *Ng0_o,
+                                          METAL_ASQ_THREAD float *u1_o,
+                                          METAL_ASQ_THREAD float3 *Ng1_o)
 {
   /* Calculate quadratic equation to solve. */
   const float rl = 1.0f / len(cylinder_end - cylinder_start);
@@ -169,13 +178,13 @@ ccl_device_inline float2 half_plane_intersect(const float3 P, const float3 N, co
 }
 
 ccl_device bool curve_intersect_iterative(const float3 ray_dir,
-                                          float *ray_tfar,
+                                          METAL_ASQ_THREAD float *ray_tfar,
                                           const float dt,
-                                          const float4 curve[4],
+                                          METAL_ASQ_THREAD const float4 curve[4],
                                           float u,
                                           float t,
                                           const bool use_backfacing,
-                                          Intersection *isect)
+                                          METAL_ASQ_THREAD Intersection *isect)
 {
   const float length_ray_dir = len(ray_dir);
 
@@ -264,8 +273,8 @@ ccl_device bool curve_intersect_iterative(const float3 ray_dir,
 ccl_device bool curve_intersect_recursive(const float3 ray_orig,
                                           const float3 ray_dir,
                                           float ray_tfar,
-                                          float4 curve[4],
-                                          Intersection *isect)
+                                          METAL_ASQ_THREAD float4 curve[4],
+                                          METAL_ASQ_THREAD Intersection *isect)
 {
   /* Move ray closer to make intersection stable. */
   const float3 center = float4_to_float3(0.25f * (curve[0] + curve[1] + curve[2] + curve[3]));
@@ -472,9 +481,9 @@ ccl_device_inline bool ribbon_intersect_quad(const float ray_tfar,
                                              const float3 quad_v1,
                                              const float3 quad_v2,
                                              const float3 quad_v3,
-                                             float *u_o,
-                                             float *v_o,
-                                             float *t_o)
+                                             METAL_ASQ_THREAD float *u_o,
+                                             METAL_ASQ_THREAD float *v_o,
+                                             METAL_ASQ_THREAD float *t_o)
 {
   /* Calculate vertices relative to ray origin? */
   const float3 O = make_float3(0.0f, 0.0f, 0.0f);
@@ -526,7 +535,7 @@ ccl_device_inline bool ribbon_intersect_quad(const float ray_tfar,
   return true;
 }
 
-ccl_device_inline void ribbon_ray_space(const float3 ray_dir, float3 ray_space[3])
+ccl_device_inline void ribbon_ray_space(const float3 ray_dir, METAL_ASQ_THREAD float3 ray_space[3])
 {
   const float3 dx0 = make_float3(0, ray_dir.z, -ray_dir.y);
   const float3 dx1 = make_float3(-ray_dir.z, 0, ray_dir.x);
@@ -535,7 +544,7 @@ ccl_device_inline void ribbon_ray_space(const float3 ray_dir, float3 ray_space[3
   ray_space[2] = ray_dir;
 }
 
-ccl_device_inline float4 ribbon_to_ray_space(const float3 ray_space[3],
+ccl_device_inline float4 ribbon_to_ray_space(METAL_ASQ_THREAD const float3 ray_space[3],
                                              const float3 ray_org,
                                              const float4 P4)
 {
@@ -547,8 +556,8 @@ ccl_device_inline bool ribbon_intersect(const float3 ray_org,
                                         const float3 ray_dir,
                                         float ray_tfar,
                                         const int N,
-                                        float4 curve[4],
-                                        Intersection *isect)
+                                        METAL_ASQ_THREAD float4 curve[4],
+                                        METAL_ASQ_THREAD Intersection *isect)
 {
   /* Transform control points into ray space. */
   float3 ray_space[3];
@@ -623,8 +632,8 @@ ccl_device_inline bool ribbon_intersect(const float3 ray_org,
   return false;
 }
 
-ccl_device_forceinline bool curve_intersect(const KernelGlobals *kg,
-                                            Intersection *isect,
+ccl_device_forceinline bool curve_intersect(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                            METAL_ASQ_THREAD Intersection *isect,
                                             const float3 P,
                                             const float3 dir,
                                             const float tmax,
@@ -698,8 +707,8 @@ ccl_device_forceinline bool curve_intersect(const KernelGlobals *kg,
   }
 }
 
-ccl_device_inline void curve_shader_setup(const KernelGlobals *kg,
-                                          ShaderData *sd,
+ccl_device_inline void curve_shader_setup(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                          METAL_ASQ_DEVICE ShaderData *sd,
                                           float3 P,
                                           float3 D,
                                           float t,

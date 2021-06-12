@@ -14,6 +14,15 @@
  * limitations under the License.
  */
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 /* Evaluate the BSDF from wi to wo.
  * Evaluation is split into the analytical single-scattering BSDF and the multi-scattering BSDF,
  * which is evaluated stochastically through a random walk. At each bounce (except for the first
@@ -31,7 +40,7 @@ ccl_device_forceinline float3 MF_FUNCTION_FULL_NAME(mf_eval)(float3 wi,
                                                              const float3 color,
                                                              const float alpha_x,
                                                              const float alpha_y,
-                                                             ccl_addr_space uint *lcg_state,
+                                                             METAL_ASQ_THREAD ccl_addr_space uint *lcg_state,
                                                              const float eta,
                                                              bool use_fresnel,
                                                              const float3 cspec0)
@@ -186,11 +195,11 @@ ccl_device_forceinline float3 MF_FUNCTION_FULL_NAME(mf_eval)(float3 wi,
  * reflection losses due to coloring or fresnel absorption in conductors, the sampling is optimal.
  */
 ccl_device_forceinline float3 MF_FUNCTION_FULL_NAME(mf_sample)(float3 wi,
-                                                               float3 *wo,
+                                                               METAL_ASQ_THREAD float3 *wo,
                                                                const float3 color,
                                                                const float alpha_x,
                                                                const float alpha_y,
-                                                               ccl_addr_space uint *lcg_state,
+                                                               METAL_ASQ_THREAD ccl_addr_space uint *lcg_state,
                                                                const float eta,
                                                                bool use_fresnel,
                                                                const float3 cspec0)

@@ -27,6 +27,15 @@
 
 #pragma once
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 CCL_NAMESPACE_BEGIN
 
 /* Setup of motion triangle specific parts of ShaderData, moved into this one
@@ -34,8 +43,8 @@ CCL_NAMESPACE_BEGIN
  * normals */
 
 /* return 3 triangle vertex normals */
-ccl_device_noinline void motion_triangle_shader_setup(const KernelGlobals *kg,
-                                                      ShaderData *sd,
+ccl_device_noinline void motion_triangle_shader_setup(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                                      METAL_ASQ_DEVICE ShaderData *sd,
                                                       const float3 P,
                                                       const float3 D,
                                                       const float ray_t,

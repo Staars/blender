@@ -16,6 +16,15 @@
 
 #pragma once
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 #include "kernel/kernel_differential.h"
 #include "kernel/kernel_light.h"
 #include "kernel/kernel_path_state.h"
@@ -29,7 +38,7 @@
 CCL_NAMESPACE_BEGIN
 
 ccl_device_forceinline bool integrator_intersect_shader_next_kernel(
-    INTEGRATOR_STATE_ARGS, const Intersection *ccl_restrict isect)
+    INTEGRATOR_STATE_ARGS, METAL_ASQ_THREAD const Intersection *ccl_restrict isect)
 {
   /* Find shader from intersection. */
   const int shader = intersection_get_shader(kg, isect);

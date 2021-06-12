@@ -32,22 +32,31 @@
 
 #pragma once
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 CCL_NAMESPACE_BEGIN
 
 ccl_device float fresnel_dielectric(float eta,
                                     const float3 N,
                                     const float3 I,
-                                    float3 *R,
-                                    float3 *T,
+                                    METAL_ASQ_THREAD float3 *R,
+                                    METAL_ASQ_THREAD float3 *t,
 #ifdef __RAY_DIFFERENTIALS__
                                     const float3 dIdx,
                                     const float3 dIdy,
-                                    float3 *dRdx,
-                                    float3 *dRdy,
-                                    float3 *dTdx,
-                                    float3 *dTdy,
+                                    METAL_ASQ_THREAD float3 *dRdx,
+                                    METAL_ASQ_THREAD float3 *dRdy,
+                                    METAL_ASQ_THREAD float3 *dTdx,
+                                    METAL_ASQ_THREAD float3 *dTdy,
 #endif
-                                    bool *is_inside)
+                                    METAL_ASQ_THREAD bool *is_inside)
 {
   float cos = dot(N, I), neta;
   float3 Nn;
@@ -76,7 +85,7 @@ ccl_device float fresnel_dielectric(float eta,
 
   float arg = 1 - (neta * neta * (1 - (cos * cos)));
   if (arg < 0) {
-    *T = make_float3(0.0f, 0.0f, 0.0f);
+    *t = make_float3(0.0f, 0.0f, 0.0f);
 #ifdef __RAY_DIFFERENTIALS__
     *dTdx = make_float3(0.0f, 0.0f, 0.0f);
     *dTdy = make_float3(0.0f, 0.0f, 0.0f);
@@ -86,7 +95,7 @@ ccl_device float fresnel_dielectric(float eta,
   else {
     float dnp = max(sqrtf(arg), 1e-7f);
     float nK = (neta * cos) - dnp;
-    *T = -(neta * I) + (nK * Nn);
+    *t = -(neta * I) + (nK * Nn);
 #ifdef __RAY_DIFFERENTIALS__
     *dTdx = -(neta * dIdx) + ((neta - neta * neta * cos / dnp) * dot(dIdx, Nn)) * Nn;
     *dTdy = -(neta * dIdy) + ((neta - neta * neta * cos / dnp) * dot(dIdy, Nn)) * Nn;

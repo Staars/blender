@@ -16,6 +16,15 @@
 
 #pragma once
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 CCL_NAMESPACE_BEGIN
 
 /* Ray offset to avoid self intersection.
@@ -73,7 +82,7 @@ ccl_device_inline float3 ray_offset(float3 P, float3 Ng)
 
 #if defined(__VOLUME_RECORD_ALL__) || (defined(__SHADOW_RECORD_ALL__) && defined(__KERNEL_CPU__))
 /* ToDo: Move to another file? */
-ccl_device int intersections_compare(const void *a, const void *b)
+ccl_device int intersections_compare(METAL_ASQ_THREAD const void *a, METAL_ASQ_THREAD const void *b)
 {
   const Intersection *isect_a = (const Intersection *)a;
   const Intersection *isect_b = (const Intersection *)b;
@@ -88,7 +97,7 @@ ccl_device int intersections_compare(const void *a, const void *b)
 #endif
 
 #if defined(__SHADOW_RECORD_ALL__)
-ccl_device_inline void sort_intersections(Intersection *hits, uint num_hits)
+ccl_device_inline void sort_intersections(METAL_ASQ_THREAD Intersection *hits, uint num_hits)
 {
   kernel_assert(num_hits > 0);
 
@@ -115,8 +124,8 @@ ccl_device_inline void sort_intersections(Intersection *hits, uint num_hits)
 
 /* Utility to quickly get flags from an intersection. */
 
-ccl_device_forceinline int intersection_get_shader_flags(const KernelGlobals *ccl_restrict kg,
-                                                         const Intersection *isect)
+ccl_device_forceinline int intersection_get_shader_flags(METAL_ASQ_DEVICE const KernelGlobals *ccl_restrict kg,
+                                                         METAL_ASQ_THREAD const Intersection *isect)
 {
   const int prim = kernel_tex_fetch(__prim_index, isect->prim);
   int shader = 0;
@@ -137,8 +146,8 @@ ccl_device_forceinline int intersection_get_shader_flags(const KernelGlobals *cc
   return kernel_tex_fetch(__shaders, (shader & SHADER_MASK)).flags;
 }
 
-ccl_device_forceinline int intersection_get_shader(const KernelGlobals *ccl_restrict kg,
-                                                   const Intersection *isect)
+ccl_device_forceinline int intersection_get_shader(METAL_ASQ_DEVICE const KernelGlobals *ccl_restrict kg,
+                                                   METAL_ASQ_THREAD const Intersection *isect)
 {
   const int prim = kernel_tex_fetch(__prim_index, isect->prim);
   int shader = 0;
@@ -159,8 +168,8 @@ ccl_device_forceinline int intersection_get_shader(const KernelGlobals *ccl_rest
   return shader & SHADER_MASK;
 }
 
-ccl_device_forceinline int intersection_get_object(const KernelGlobals *ccl_restrict kg,
-                                                   const Intersection *isect)
+ccl_device_forceinline int intersection_get_object(METAL_ASQ_DEVICE const KernelGlobals *ccl_restrict kg,
+                                                   METAL_ASQ_THREAD const Intersection *isect)
 {
   if (isect->object != OBJECT_NONE) {
     return isect->object;
@@ -169,8 +178,8 @@ ccl_device_forceinline int intersection_get_object(const KernelGlobals *ccl_rest
   return kernel_tex_fetch(__prim_object, isect->prim);
 }
 
-ccl_device_forceinline int intersection_get_object_flags(const KernelGlobals *ccl_restrict kg,
-                                                         const Intersection *isect)
+ccl_device_forceinline int intersection_get_object_flags(METAL_ASQ_DEVICE const KernelGlobals *ccl_restrict kg,
+                                                         METAL_ASQ_THREAD const Intersection *isect)
 {
   const int object = intersection_get_object(kg, isect);
 

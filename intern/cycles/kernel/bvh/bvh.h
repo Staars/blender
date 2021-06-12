@@ -27,6 +27,14 @@
 
 #pragma once
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
 #ifdef __EMBREE__
 #  include "kernel/bvh/bvh_embree.h"
 #endif
@@ -139,7 +147,7 @@ CCL_NAMESPACE_BEGIN
 
 #endif /* __KERNEL_OPTIX__ */
 
-ccl_device_inline bool scene_intersect_valid(const Ray *ray)
+ccl_device_inline bool scene_intersect_valid(METAL_ASQ_THREAD const Ray *ray)
 {
   /* NOTE: Due to some vectorization code  non-finite origin point might
    * cause lots of false-positive intersections which will overflow traversal
@@ -154,10 +162,10 @@ ccl_device_inline bool scene_intersect_valid(const Ray *ray)
   return isfinite_safe(ray->P.x) && isfinite_safe(ray->D.x) && len_squared(ray->D) != 0.0f;
 }
 
-ccl_device_intersect bool scene_intersect(const KernelGlobals *kg,
-                                          const Ray *ray,
+ccl_device_intersect bool scene_intersect(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                          METAL_ASQ_THREAD const Ray *ray,
                                           const uint visibility,
-                                          Intersection *isect)
+                                          METAL_ASQ_THREAD Intersection *isect)
 {
   PROFILING_INIT(kg, PROFILING_INTERSECT);
 
@@ -240,11 +248,11 @@ ccl_device_intersect bool scene_intersect(const KernelGlobals *kg,
 }
 
 #ifdef __BVH_LOCAL__
-ccl_device_intersect bool scene_intersect_local(const KernelGlobals *kg,
-                                                const Ray *ray,
-                                                LocalIntersection *local_isect,
+ccl_device_intersect bool scene_intersect_local(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                                METAL_ASQ_THREAD const Ray *ray,
+                                                METAL_ASQ_THREAD LocalIntersection *local_isect,
                                                 int local_object,
-                                                uint *lcg_state,
+                                                METAL_ASQ_THREAD uint *lcg_state,
                                                 int max_hits)
 {
   PROFILING_INIT(kg, PROFILING_INTERSECT_LOCAL);
@@ -355,12 +363,12 @@ ccl_device_intersect bool scene_intersect_local(const KernelGlobals *kg,
 #endif
 
 #ifdef __SHADOW_RECORD_ALL__
-ccl_device_intersect bool scene_intersect_shadow_all(const KernelGlobals *kg,
-                                                     const Ray *ray,
-                                                     Intersection *isect,
+ccl_device_intersect bool scene_intersect_shadow_all(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                                     METAL_ASQ_THREAD const Ray *ray,
+                                                     METAL_ASQ_THREAD Intersection *isect,
                                                      uint visibility,
                                                      uint max_hits,
-                                                     uint *num_hits)
+                                                     METAL_ASQ_THREAD uint *num_hits)
 {
   PROFILING_INIT(kg, PROFILING_INTERSECT_SHADOW_ALL);
 
@@ -437,9 +445,9 @@ ccl_device_intersect bool scene_intersect_shadow_all(const KernelGlobals *kg,
 #endif /* __SHADOW_RECORD_ALL__ */
 
 #ifdef __VOLUME__
-ccl_device_intersect bool scene_intersect_volume(const KernelGlobals *kg,
-                                                 const Ray *ray,
-                                                 Intersection *isect,
+ccl_device_intersect bool scene_intersect_volume(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                                 METAL_ASQ_THREAD const Ray *ray,
+                                                 METAL_ASQ_THREAD Intersection *isect,
                                                  const uint visibility)
 {
   PROFILING_INIT(kg, PROFILING_INTERSECT_VOLUME);
@@ -496,9 +504,9 @@ ccl_device_intersect bool scene_intersect_volume(const KernelGlobals *kg,
 #endif /* __VOLUME__ */
 
 #ifdef __VOLUME_RECORD_ALL__
-ccl_device_intersect uint scene_intersect_volume_all(const KernelGlobals *kg,
-                                                     const Ray *ray,
-                                                     Intersection *isect,
+ccl_device_intersect uint scene_intersect_volume_all(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                                     METAL_ASQ_THREAD const Ray *ray,
+                                                     METAL_ASQ_THREAD Intersection *isect,
                                                      const uint max_hits,
                                                      const uint visibility)
 {

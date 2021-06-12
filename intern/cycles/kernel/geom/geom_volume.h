@@ -25,14 +25,23 @@
 
 #pragma once
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 CCL_NAMESPACE_BEGIN
 
 #ifdef __VOLUME__
 
 /* Return position normalized to 0..1 in mesh bounds */
 
-ccl_device_inline float3 volume_normalized_position(const KernelGlobals *kg,
-                                                    const ShaderData *sd,
+ccl_device_inline float3 volume_normalized_position(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                                    METAL_ASQ_DEVICE const ShaderData *sd,
                                                     float3 P)
 {
   /* todo: optimize this so it's just a single matrix multiplication when
@@ -70,8 +79,8 @@ ccl_device float3 volume_attribute_value_to_float3(const float4 value)
   }
 }
 
-ccl_device float4 volume_attribute_float4(const KernelGlobals *kg,
-                                          const ShaderData *sd,
+ccl_device float4 volume_attribute_float4(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                          METAL_ASQ_DEVICE const ShaderData *sd,
                                           const AttributeDescriptor desc)
 {
   /* todo: optimize this so we don't have to transform both here and in

@@ -16,6 +16,15 @@
 
 #pragma once
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 #include "geom/geom.h"
 
 #include "kernel_light_background.h"
@@ -45,7 +54,7 @@ typedef struct LightSample {
 /* Regular Light */
 
 ccl_device_inline bool light_sample_from_position(
-    const KernelGlobals *kg, int lamp, float randu, float randv, float3 P, LightSample *ls)
+                                                  METAL_ASQ_DEVICE const KernelGlobals *kg, int lamp, float randu, float randv, float3 P, METAL_ASQ_THREAD LightSample *ls)
 {
   const ccl_global KernelLight *klight = &kernel_tex_fetch(__lights, lamp);
   LightType type = (LightType)klight->type;
@@ -183,9 +192,9 @@ ccl_device_inline bool light_sample_from_position(
   return (ls->pdf > 0.0f);
 }
 
-ccl_device bool lights_intersect(const KernelGlobals *ccl_restrict kg,
-                                 const Ray *ccl_restrict ray,
-                                 Intersection *ccl_restrict isect,
+ccl_device bool lights_intersect(METAL_ASQ_DEVICE const KernelGlobals *ccl_restrict kg,
+                                 METAL_ASQ_THREAD const Ray *ccl_restrict ray,
+                                 METAL_ASQ_THREAD Intersection *ccl_restrict isect,
                                  const int last_prim,
                                  const int last_object,
                                  const int last_type)
@@ -257,10 +266,10 @@ ccl_device bool lights_intersect(const KernelGlobals *ccl_restrict kg,
   return isect->prim != PRIM_NONE;
 }
 
-ccl_device bool light_sample_from_distant_ray(const KernelGlobals *ccl_restrict kg,
+ccl_device bool light_sample_from_distant_ray(METAL_ASQ_DEVICE const KernelGlobals *ccl_restrict kg,
                                               const float3 ray_D,
                                               const int lamp,
-                                              LightSample *ccl_restrict ls)
+                                              METAL_ASQ_THREAD LightSample *ccl_restrict ls)
 {
   const ccl_global KernelLight *klight = &kernel_tex_fetch(__lights, lamp);
   const int shader = klight->shader_id;
@@ -321,11 +330,11 @@ ccl_device bool light_sample_from_distant_ray(const KernelGlobals *ccl_restrict 
   return true;
 }
 
-ccl_device bool light_sample_from_intersection(const KernelGlobals *ccl_restrict kg,
-                                               const Intersection *ccl_restrict isect,
+ccl_device bool light_sample_from_intersection(METAL_ASQ_DEVICE const KernelGlobals *ccl_restrict kg,
+                                               METAL_ASQ_THREAD const Intersection *ccl_restrict isect,
                                                const float3 ray_P,
                                                const float3 ray_D,
-                                               LightSample *ccl_restrict ls)
+                                               METAL_ASQ_THREAD LightSample *ccl_restrict ls)
 {
   const int lamp = isect->prim;
   const ccl_global KernelLight *klight = &kernel_tex_fetch(__lights, lamp);
@@ -423,7 +432,7 @@ ccl_device bool light_sample_from_intersection(const KernelGlobals *ccl_restrict
 
 /* returns true if the triangle is has motion blur or an instancing transform applied */
 ccl_device_inline bool triangle_world_space_vertices(
-    const KernelGlobals *kg, int object, int prim, float time, float3 V[3])
+                                                     METAL_ASQ_DEVICE const KernelGlobals *kg, int object, int prim, float time, METAL_ASQ_THREAD float3 V[3])
 {
   bool has_motion = false;
   const int object_flag = kernel_tex_fetch(__object_flag, object);
@@ -451,7 +460,7 @@ ccl_device_inline bool triangle_world_space_vertices(
   return has_motion;
 }
 
-ccl_device_inline float triangle_light_pdf_area(const KernelGlobals *kg,
+ccl_device_inline float triangle_light_pdf_area(METAL_ASQ_DEVICE const KernelGlobals *kg,
                                                 const float3 Ng,
                                                 const float3 I,
                                                 float t)
@@ -465,8 +474,8 @@ ccl_device_inline float triangle_light_pdf_area(const KernelGlobals *kg,
   return t * t * pdf / cos_pi;
 }
 
-ccl_device_forceinline float triangle_light_pdf(const KernelGlobals *kg,
-                                                const ShaderData *sd,
+ccl_device_forceinline float triangle_light_pdf(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                                METAL_ASQ_DEVICE const ShaderData *sd,
                                                 float t)
 {
   /* A naive heuristic to decide between costly solid angle sampling
@@ -536,13 +545,13 @@ ccl_device_forceinline float triangle_light_pdf(const KernelGlobals *kg,
   }
 }
 
-ccl_device_forceinline void triangle_light_sample(const KernelGlobals *kg,
+ccl_device_forceinline void triangle_light_sample(METAL_ASQ_DEVICE const KernelGlobals *kg,
                                                   int prim,
                                                   int object,
                                                   float randu,
                                                   float randv,
                                                   float time,
-                                                  LightSample *ls,
+                                                  METAL_ASQ_THREAD LightSample *ls,
                                                   const float3 P)
 {
   /* A naive heuristic to decide between costly solid angle sampling
@@ -705,7 +714,7 @@ ccl_device_forceinline void triangle_light_sample(const KernelGlobals *kg,
 
 /* Light Distribution */
 
-ccl_device int light_distribution_sample(const KernelGlobals *kg, float *randu)
+ccl_device int light_distribution_sample(METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_THREAD float *randu)
 {
   /* This is basically std::upper_bound as used by PBRT, to find a point light or
    * triangle to emit from, proportional to area. a good improvement would be to
@@ -743,21 +752,21 @@ ccl_device int light_distribution_sample(const KernelGlobals *kg, float *randu)
 
 /* Generic Light */
 
-ccl_device_inline bool light_select_reached_max_bounces(const KernelGlobals *kg,
+ccl_device_inline bool light_select_reached_max_bounces(METAL_ASQ_DEVICE const KernelGlobals *kg,
                                                         int index,
                                                         int bounce)
 {
   return (bounce > kernel_tex_fetch(__lights, index).max_bounces);
 }
 
-ccl_device_noinline bool light_sample(const KernelGlobals *kg,
+ccl_device_noinline bool light_sample(METAL_ASQ_DEVICE const KernelGlobals *kg,
                                       float randu,
                                       const float randv,
                                       const float time,
                                       const float3 P,
                                       const int bounce,
                                       const int path_flag,
-                                      LightSample *ls)
+                                      METAL_ASQ_THREAD LightSample *ls)
 {
   /* Sample light index from distribution. */
   const int index = light_distribution_sample(kg, &randu);

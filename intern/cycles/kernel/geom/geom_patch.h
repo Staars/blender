@@ -26,13 +26,22 @@
 
 #pragma once
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 CCL_NAMESPACE_BEGIN
 
 typedef struct PatchHandle {
   int array_index, patch_index, vert_index;
 } PatchHandle;
 
-ccl_device_inline int patch_map_resolve_quadrant(float median, float *u, float *v)
+ccl_device_inline int patch_map_resolve_quadrant(float median, METAL_ASQ_THREAD float *u, METAL_ASQ_THREAD float *v)
 {
   int quadrant = -1;
 
@@ -62,7 +71,7 @@ ccl_device_inline int patch_map_resolve_quadrant(float median, float *u, float *
 /* retrieve PatchHandle from patch coords */
 
 ccl_device_inline PatchHandle
-patch_map_find_patch(const KernelGlobals *kg, int object, int patch, float u, float v)
+patch_map_find_patch(METAL_ASQ_DEVICE const KernelGlobals *kg, int object, int patch, float u, float v)
 {
   PatchHandle handle;
 
@@ -108,7 +117,7 @@ patch_map_find_patch(const KernelGlobals *kg, int object, int patch, float u, fl
   return handle;
 }
 
-ccl_device_inline void patch_eval_bspline_weights(float t, float *point, float *deriv)
+ccl_device_inline void patch_eval_bspline_weights(float t, METAL_ASQ_THREAD float *point, METAL_ASQ_THREAD float *deriv)
 {
   /* The four uniform cubic B-Spline basis functions evaluated at t */
   float inv_6 = 1.0f / 6.0f;
@@ -128,7 +137,7 @@ ccl_device_inline void patch_eval_bspline_weights(float t, float *point, float *
   deriv[3] = 0.5f * t2;
 }
 
-ccl_device_inline void patch_eval_adjust_boundary_weights(uint bits, float *s, float *t)
+ccl_device_inline void patch_eval_adjust_boundary_weights(uint bits, METAL_ASQ_THREAD float *s, METAL_ASQ_THREAD float *t)
 {
   int boundary = ((bits >> 8) & 0xf);
 
@@ -175,7 +184,7 @@ ccl_device_inline float patch_eval_param_fraction(uint patch_bits)
   }
 }
 
-ccl_device_inline void patch_eval_normalize_coords(uint patch_bits, float *u, float *v)
+ccl_device_inline void patch_eval_normalize_coords(uint patch_bits, METAL_ASQ_THREAD float *u, METAL_ASQ_THREAD float *v)
 {
   float frac = patch_eval_param_fraction(patch_bits);
 
@@ -193,10 +202,10 @@ ccl_device_inline void patch_eval_normalize_coords(uint patch_bits, float *u, fl
 
 /* retrieve patch control indices */
 
-ccl_device_inline int patch_eval_indices(const KernelGlobals *kg,
-                                         const PatchHandle *handle,
+ccl_device_inline int patch_eval_indices(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                         METAL_ASQ_THREAD const PatchHandle *handle,
                                          int channel,
-                                         int indices[PATCH_MAX_CONTROL_VERTS])
+                                         METAL_ASQ_THREAD int indices[PATCH_MAX_CONTROL_VERTS])
 {
   int index_base = kernel_tex_fetch(__patches, handle->array_index + 2) + handle->vert_index;
 
@@ -210,13 +219,13 @@ ccl_device_inline int patch_eval_indices(const KernelGlobals *kg,
 
 /* evaluate patch basis functions */
 
-ccl_device_inline void patch_eval_basis(const KernelGlobals *kg,
-                                        const PatchHandle *handle,
+ccl_device_inline void patch_eval_basis(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                        METAL_ASQ_THREAD const PatchHandle *handle,
                                         float u,
                                         float v,
-                                        float weights[PATCH_MAX_CONTROL_VERTS],
-                                        float weights_du[PATCH_MAX_CONTROL_VERTS],
-                                        float weights_dv[PATCH_MAX_CONTROL_VERTS])
+                                        METAL_ASQ_THREAD float weights[PATCH_MAX_CONTROL_VERTS],
+                                        METAL_ASQ_THREAD float weights_du[PATCH_MAX_CONTROL_VERTS],
+                                        METAL_ASQ_THREAD float weights_dv[PATCH_MAX_CONTROL_VERTS])
 {
   uint patch_bits = kernel_tex_fetch(__patches, handle->patch_index + 1); /* read patch param */
   float d_scale = 1 << patch_eval_depth(patch_bits);
@@ -249,16 +258,16 @@ ccl_device_inline void patch_eval_basis(const KernelGlobals *kg,
 
 /* generic function for evaluating indices and weights from patch coords */
 
-ccl_device_inline int patch_eval_control_verts(const KernelGlobals *kg,
+ccl_device_inline int patch_eval_control_verts(METAL_ASQ_DEVICE const KernelGlobals *kg,
                                                int object,
                                                int patch,
                                                float u,
                                                float v,
                                                int channel,
-                                               int indices[PATCH_MAX_CONTROL_VERTS],
-                                               float weights[PATCH_MAX_CONTROL_VERTS],
-                                               float weights_du[PATCH_MAX_CONTROL_VERTS],
-                                               float weights_dv[PATCH_MAX_CONTROL_VERTS])
+                                               METAL_ASQ_THREAD int indices[PATCH_MAX_CONTROL_VERTS],
+                                               METAL_ASQ_THREAD float weights[PATCH_MAX_CONTROL_VERTS],
+                                               METAL_ASQ_THREAD float weights_du[PATCH_MAX_CONTROL_VERTS],
+                                               METAL_ASQ_THREAD float weights_dv[PATCH_MAX_CONTROL_VERTS])
 {
   PatchHandle handle = patch_map_find_patch(kg, object, patch, u, v);
   kernel_assert(handle.array_index >= 0);
@@ -271,15 +280,15 @@ ccl_device_inline int patch_eval_control_verts(const KernelGlobals *kg,
 
 /* functions for evaluating attributes on patches */
 
-ccl_device float patch_eval_float(const KernelGlobals *kg,
-                                  const ShaderData *sd,
+ccl_device float patch_eval_float(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                  METAL_ASQ_DEVICE const ShaderData *sd,
                                   int offset,
                                   int patch,
                                   float u,
                                   float v,
                                   int channel,
-                                  float *du,
-                                  float *dv)
+                                  METAL_ASQ_THREAD float *du,
+                                  METAL_ASQ_THREAD float *dv)
 {
   int indices[PATCH_MAX_CONTROL_VERTS];
   float weights[PATCH_MAX_CONTROL_VERTS];
@@ -308,15 +317,15 @@ ccl_device float patch_eval_float(const KernelGlobals *kg,
   return val;
 }
 
-ccl_device float2 patch_eval_float2(const KernelGlobals *kg,
-                                    const ShaderData *sd,
+ccl_device float2 patch_eval_float2(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                    METAL_ASQ_DEVICE const ShaderData *sd,
                                     int offset,
                                     int patch,
                                     float u,
                                     float v,
                                     int channel,
-                                    float2 *du,
-                                    float2 *dv)
+                                    METAL_ASQ_THREAD float2 *du,
+                                    METAL_ASQ_THREAD float2 *dv)
 {
   int indices[PATCH_MAX_CONTROL_VERTS];
   float weights[PATCH_MAX_CONTROL_VERTS];
@@ -345,15 +354,15 @@ ccl_device float2 patch_eval_float2(const KernelGlobals *kg,
   return val;
 }
 
-ccl_device float3 patch_eval_float3(const KernelGlobals *kg,
-                                    const ShaderData *sd,
+ccl_device float3 patch_eval_float3(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                    METAL_ASQ_DEVICE const ShaderData *sd,
                                     int offset,
                                     int patch,
                                     float u,
                                     float v,
                                     int channel,
-                                    float3 *du,
-                                    float3 *dv)
+                                    METAL_ASQ_THREAD float3 *du,
+                                    METAL_ASQ_THREAD float3 *dv)
 {
   int indices[PATCH_MAX_CONTROL_VERTS];
   float weights[PATCH_MAX_CONTROL_VERTS];
@@ -382,15 +391,15 @@ ccl_device float3 patch_eval_float3(const KernelGlobals *kg,
   return val;
 }
 
-ccl_device float4 patch_eval_float4(const KernelGlobals *kg,
-                                    const ShaderData *sd,
+ccl_device float4 patch_eval_float4(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                    METAL_ASQ_DEVICE const ShaderData *sd,
                                     int offset,
                                     int patch,
                                     float u,
                                     float v,
                                     int channel,
-                                    float4 *du,
-                                    float4 *dv)
+                                    METAL_ASQ_THREAD float4 *du,
+                                    METAL_ASQ_THREAD float4 *dv)
 {
   int indices[PATCH_MAX_CONTROL_VERTS];
   float weights[PATCH_MAX_CONTROL_VERTS];
@@ -419,15 +428,15 @@ ccl_device float4 patch_eval_float4(const KernelGlobals *kg,
   return val;
 }
 
-ccl_device float4 patch_eval_uchar4(const KernelGlobals *kg,
-                                    const ShaderData *sd,
+ccl_device float4 patch_eval_uchar4(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                    METAL_ASQ_DEVICE const ShaderData *sd,
                                     int offset,
                                     int patch,
                                     float u,
                                     float v,
                                     int channel,
-                                    float4 *du,
-                                    float4 *dv)
+                                    METAL_ASQ_THREAD float4 *du,
+                                    METAL_ASQ_THREAD float4 *dv)
 {
   int indices[PATCH_MAX_CONTROL_VERTS];
   float weights[PATCH_MAX_CONTROL_VERTS];

@@ -16,6 +16,15 @@
 
 #pragma once
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 CCL_NAMESPACE_BEGIN
 
 /* Visibility for the shadow ray. */
@@ -32,7 +41,7 @@ ccl_device_forceinline uint integrate_intersect_shadow_visibility(INTEGRATOR_STA
 }
 
 ccl_device bool integrate_intersect_shadow_opaque(INTEGRATOR_STATE_ARGS,
-                                                  const Ray *ray,
+                                                  METAL_ASQ_THREAD const Ray *ray,
                                                   const uint visibility)
 {
   PROFILING_INIT(kg, PROFILING_SCENE_INTERSECT);
@@ -64,7 +73,7 @@ ccl_device_forceinline int integrate_shadow_max_transparent_hits(INTEGRATOR_STAT
 
 #ifdef __TRANSPARENT_SHADOWS__
 ccl_device bool integrate_intersect_shadow_transparent(INTEGRATOR_STATE_ARGS,
-                                                       const Ray *ray,
+                                                       METAL_ASQ_THREAD const Ray *ray,
                                                        const uint visibility)
 {
   PROFILING_INIT(kg, PROFILING_SCENE_INTERSECT);

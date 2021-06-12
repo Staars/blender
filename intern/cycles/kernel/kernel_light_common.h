@@ -15,6 +15,14 @@
  */
 
 #pragma once
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
 
 #include "kernel_montecarlo.h"
 
@@ -32,7 +40,7 @@ CCL_NAMESPACE_BEGIN
  * Note: light_p is modified when sample_coord is true.
  */
 ccl_device_inline float rect_light_sample(float3 P,
-                                          float3 *light_p,
+                                          METAL_ASQ_THREAD float3 *light_p,
                                           float3 axisu,
                                           float3 axisv,
                                           float randu,
@@ -167,9 +175,9 @@ ccl_device float light_spread_attenuation(const float3 D,
  * reduce noise with low spread. */
 ccl_device bool light_spread_clamp_area_light(const float3 P,
                                               const float3 lightNg,
-                                              float3 *lightP,
-                                              float3 *axisu,
-                                              float3 *axisv,
+                                              METAL_ASQ_THREAD float3 *lightP,
+                                              METAL_ASQ_THREAD float3 *axisu,
+                                              METAL_ASQ_THREAD float3 *axisv,
                                               const float tan_spread)
 {
   /* Closest point in area light plane and distance to that plane. */
@@ -214,7 +222,7 @@ ccl_device bool light_spread_clamp_area_light(const float3 P,
   return true;
 }
 
-ccl_device float lamp_light_pdf(const KernelGlobals *kg, const float3 Ng, const float3 I, float t)
+ccl_device float lamp_light_pdf(METAL_ASQ_DEVICE const KernelGlobals *kg, const float3 Ng, const float3 I, float t)
 {
   float cos_pi = dot(Ng, I);
 

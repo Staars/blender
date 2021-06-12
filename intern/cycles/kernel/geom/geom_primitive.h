@@ -21,6 +21,14 @@
 
 #pragma once
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
 #include "kernel/kernel_projection.h"
 
 CCL_NAMESPACE_BEGIN
@@ -31,11 +39,11 @@ CCL_NAMESPACE_BEGIN
  * attributes for performance, mainly for GPU performance to avoid bringing in
  * heavy volume interpolation code. */
 
-ccl_device_inline float primitive_surface_attribute_float(const KernelGlobals *kg,
-                                                          const ShaderData *sd,
+ccl_device_inline float primitive_surface_attribute_float(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                                          METAL_ASQ_DEVICE const ShaderData *sd,
                                                           const AttributeDescriptor desc,
-                                                          float *dx,
-                                                          float *dy)
+                                                          METAL_ASQ_THREAD float *dx,
+                                                          METAL_ASQ_THREAD float *dy)
 {
   if (sd->type & PRIMITIVE_ALL_TRIANGLE) {
     if (subd_triangle_patch(kg, sd) == ~0)
@@ -57,11 +65,11 @@ ccl_device_inline float primitive_surface_attribute_float(const KernelGlobals *k
   }
 }
 
-ccl_device_inline float2 primitive_surface_attribute_float2(const KernelGlobals *kg,
-                                                            const ShaderData *sd,
+ccl_device_inline float2 primitive_surface_attribute_float2(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                                            METAL_ASQ_DEVICE const ShaderData *sd,
                                                             const AttributeDescriptor desc,
-                                                            float2 *dx,
-                                                            float2 *dy)
+                                                            METAL_ASQ_THREAD float2 *dx,
+                                                            METAL_ASQ_THREAD float2 *dy)
 {
   if (sd->type & PRIMITIVE_ALL_TRIANGLE) {
     if (subd_triangle_patch(kg, sd) == ~0)
@@ -83,11 +91,11 @@ ccl_device_inline float2 primitive_surface_attribute_float2(const KernelGlobals 
   }
 }
 
-ccl_device_inline float3 primitive_surface_attribute_float3(const KernelGlobals *kg,
-                                                            const ShaderData *sd,
+ccl_device_inline float3 primitive_surface_attribute_float3(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                                            METAL_ASQ_DEVICE const ShaderData *sd,
                                                             const AttributeDescriptor desc,
-                                                            float3 *dx,
-                                                            float3 *dy)
+                                                            METAL_ASQ_THREAD float3 *dx,
+                                                            METAL_ASQ_THREAD float3 *dy)
 {
   if (sd->type & PRIMITIVE_ALL_TRIANGLE) {
     if (subd_triangle_patch(kg, sd) == ~0)
@@ -109,11 +117,11 @@ ccl_device_inline float3 primitive_surface_attribute_float3(const KernelGlobals 
   }
 }
 
-ccl_device_forceinline float4 primitive_surface_attribute_float4(const KernelGlobals *kg,
-                                                                 const ShaderData *sd,
+ccl_device_forceinline float4 primitive_surface_attribute_float4(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                                                 METAL_ASQ_DEVICE const ShaderData *sd,
                                                                  const AttributeDescriptor desc,
-                                                                 float4 *dx,
-                                                                 float4 *dy)
+                                                                 METAL_ASQ_THREAD float4 *dx,
+                                                                 METAL_ASQ_THREAD float4 *dy)
 {
   if (sd->type & PRIMITIVE_ALL_TRIANGLE) {
     if (subd_triangle_patch(kg, sd) == ~0)
@@ -142,14 +150,14 @@ ccl_device_forceinline float4 primitive_surface_attribute_float4(const KernelGlo
  * attributes for performance, mainly for GPU performance to avoid bringing in
  * heavy volume interpolation code. */
 
-ccl_device_inline bool primitive_is_volume_attribute(const ShaderData *sd,
+ccl_device_inline bool primitive_is_volume_attribute(METAL_ASQ_DEVICE const ShaderData *sd,
                                                      const AttributeDescriptor desc)
 {
   return (sd->object != OBJECT_NONE && desc.element == ATTR_ELEMENT_VOXEL);
 }
 
-ccl_device_inline float primitive_volume_attribute_float(const KernelGlobals *kg,
-                                                         const ShaderData *sd,
+ccl_device_inline float primitive_volume_attribute_float(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                                         METAL_ASQ_DEVICE const ShaderData *sd,
                                                          const AttributeDescriptor desc)
 {
   if (primitive_is_volume_attribute(sd, desc)) {
@@ -160,8 +168,8 @@ ccl_device_inline float primitive_volume_attribute_float(const KernelGlobals *kg
   }
 }
 
-ccl_device_inline float3 primitive_volume_attribute_float3(const KernelGlobals *kg,
-                                                           const ShaderData *sd,
+ccl_device_inline float3 primitive_volume_attribute_float3(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                                           METAL_ASQ_DEVICE const ShaderData *sd,
                                                            const AttributeDescriptor desc)
 {
   if (primitive_is_volume_attribute(sd, desc)) {
@@ -172,8 +180,8 @@ ccl_device_inline float3 primitive_volume_attribute_float3(const KernelGlobals *
   }
 }
 
-ccl_device_inline float4 primitive_volume_attribute_float4(const KernelGlobals *kg,
-                                                           const ShaderData *sd,
+ccl_device_inline float4 primitive_volume_attribute_float4(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                                           METAL_ASQ_DEVICE const ShaderData *sd,
                                                            const AttributeDescriptor desc)
 {
   if (primitive_is_volume_attribute(sd, desc)) {
@@ -187,7 +195,7 @@ ccl_device_inline float4 primitive_volume_attribute_float4(const KernelGlobals *
 
 /* Default UV coordinate */
 
-ccl_device_inline float3 primitive_uv(const KernelGlobals *kg, const ShaderData *sd)
+ccl_device_inline float3 primitive_uv(METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE const ShaderData *sd)
 {
   const AttributeDescriptor desc = find_attribute(kg, sd, ATTR_STD_UV);
 
@@ -200,7 +208,7 @@ ccl_device_inline float3 primitive_uv(const KernelGlobals *kg, const ShaderData 
 
 /* Ptex coordinates */
 
-ccl_device bool primitive_ptex(const KernelGlobals *kg, ShaderData *sd, float2 *uv, int *face_id)
+ccl_device bool primitive_ptex(METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float2 *uv, METAL_ASQ_THREAD int *face_id)
 {
   /* storing ptex data as attributes is not memory efficient but simple for tests */
   const AttributeDescriptor desc_face_id = find_attribute(kg, sd, ATTR_STD_PTEX_FACE_ID);
@@ -220,7 +228,7 @@ ccl_device bool primitive_ptex(const KernelGlobals *kg, ShaderData *sd, float2 *
 
 /* Surface tangent */
 
-ccl_device float3 primitive_tangent(const KernelGlobals *kg, ShaderData *sd)
+ccl_device float3 primitive_tangent(METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd)
 {
 #ifdef __HAIR__
   if (sd->type & PRIMITIVE_ALL_CURVE)
@@ -252,7 +260,7 @@ ccl_device float3 primitive_tangent(const KernelGlobals *kg, ShaderData *sd)
 
 /* Motion vector for motion pass */
 
-ccl_device_inline float4 primitive_motion_vector(const KernelGlobals *kg, const ShaderData *sd)
+ccl_device_inline float4 primitive_motion_vector(METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE const ShaderData *sd)
 {
   /* center position */
   float3 center;

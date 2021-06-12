@@ -23,6 +23,15 @@
 #  define NODE_INTERSECT bvh_aligned_node_intersect
 #endif
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 /* This is a template BVH traversal function for volumes, where
  * various features can be enabled/disabled. This way we can compile optimized
  * versions for each case without new features slowing things down.
@@ -35,9 +44,9 @@ ccl_device
 #else
 ccl_device_inline
 #endif
-    bool BVH_FUNCTION_FULL_NAME(BVH)(const KernelGlobals *kg,
-                                     const Ray *ray,
-                                     Intersection *isect,
+    bool BVH_FUNCTION_FULL_NAME(BVH)(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                     METAL_ASQ_THREAD const Ray *ray,
+                                     METAL_ASQ_THREAD Intersection *isect,
                                      const uint visibility)
 {
   /* todo:
@@ -221,9 +230,9 @@ ccl_device_inline
   return (isect->prim != PRIM_NONE);
 }
 
-ccl_device_inline bool BVH_FUNCTION_NAME(const KernelGlobals *kg,
-                                         const Ray *ray,
-                                         Intersection *isect,
+ccl_device_inline bool BVH_FUNCTION_NAME(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                         METAL_ASQ_THREAD const Ray *ray,
+                                         METAL_ASQ_THREAD Intersection *isect,
                                          const uint visibility)
 {
   return BVH_FUNCTION_FULL_NAME(BVH)(kg, ray, isect, visibility);

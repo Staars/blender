@@ -16,6 +16,15 @@
 
 #pragma once
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 #include "kernel_light_common.h"
 
 CCL_NAMESPACE_BEGIN
@@ -24,10 +33,10 @@ CCL_NAMESPACE_BEGIN
 
 #ifdef __BACKGROUND_MIS__
 
-ccl_device float3 background_map_sample(const KernelGlobals *kg,
+ccl_device float3 background_map_sample(METAL_ASQ_DEVICE const KernelGlobals *kg,
                                         float randu,
                                         float randv,
-                                        float *pdf)
+                                        METAL_ASQ_THREAD float *pdf)
 {
   /* for the following, the CDF values are actually a pair of floats, with the
    * function value as X and the actual CDF as Y.  The last entry's function
@@ -109,7 +118,7 @@ ccl_device float3 background_map_sample(const KernelGlobals *kg,
 /* TODO(sergey): Same as above, after the release we should consider using
  * 'noinline' for all devices.
  */
-ccl_device float background_map_pdf(const KernelGlobals *kg, float3 direction)
+ccl_device float background_map_pdf(METAL_ASQ_DEVICE const KernelGlobals *kg, float3 direction)
 {
   float2 uv = direction_to_equirectangular(direction);
   int res_x = kernel_data.background.map_res_x;
@@ -143,7 +152,7 @@ ccl_device float background_map_pdf(const KernelGlobals *kg, float3 direction)
 }
 
 ccl_device_inline bool background_portal_data_fetch_and_check_side(
-    const KernelGlobals *kg, float3 P, int index, float3 *lightpos, float3 *dir)
+                                                                   METAL_ASQ_DEVICE const KernelGlobals *kg, float3 P, int index, METAL_ASQ_THREAD float3 *lightpos, METAL_ASQ_THREAD float3 *dir)
 {
   int portal = kernel_data.background.portal_offset + index;
   const ccl_global KernelLight *klight = &kernel_tex_fetch(__lights, portal);
@@ -159,7 +168,7 @@ ccl_device_inline bool background_portal_data_fetch_and_check_side(
 }
 
 ccl_device_inline float background_portal_pdf(
-    const KernelGlobals *kg, float3 P, float3 direction, int ignore_portal, bool *is_possible)
+                                              METAL_ASQ_DEVICE const KernelGlobals *kg, float3 P, float3 direction, int ignore_portal, METAL_ASQ_THREAD bool *is_possible)
 {
   float portal_pdf = 0.0f;
 
@@ -219,7 +228,7 @@ ccl_device_inline float background_portal_pdf(
   return (num_possible > 0) ? portal_pdf / num_possible : 0.0f;
 }
 
-ccl_device int background_num_possible_portals(const KernelGlobals *kg, float3 P)
+ccl_device int background_num_possible_portals(METAL_ASQ_DEVICE const KernelGlobals *kg, float3 P)
 {
   int num_possible_portals = 0;
   for (int p = 0; p < kernel_data.background.num_portals; p++) {
@@ -230,13 +239,13 @@ ccl_device int background_num_possible_portals(const KernelGlobals *kg, float3 P
   return num_possible_portals;
 }
 
-ccl_device float3 background_portal_sample(const KernelGlobals *kg,
+ccl_device float3 background_portal_sample(METAL_ASQ_DEVICE const KernelGlobals *kg,
                                            float3 P,
                                            float randu,
                                            float randv,
                                            int num_possible,
-                                           int *sampled_portal,
-                                           float *pdf)
+                                           METAL_ASQ_THREAD int *sampled_portal,
+                                           METAL_ASQ_THREAD float *pdf)
 {
   /* Pick a portal, then re-normalize randv. */
   randv *= num_possible;
@@ -285,10 +294,10 @@ ccl_device float3 background_portal_sample(const KernelGlobals *kg,
   return zero_float3();
 }
 
-ccl_device_inline float3 background_sun_sample(const KernelGlobals *kg,
+ccl_device_inline float3 background_sun_sample(METAL_ASQ_DEVICE const KernelGlobals *kg,
                                                float randu,
                                                float randv,
-                                               float *pdf)
+                                               METAL_ASQ_THREAD float *pdf)
 {
   float3 D;
   const float3 N = float4_to_float3(kernel_data.background.sun);
@@ -297,7 +306,7 @@ ccl_device_inline float3 background_sun_sample(const KernelGlobals *kg,
   return D;
 }
 
-ccl_device_inline float background_sun_pdf(const KernelGlobals *kg, float3 D)
+ccl_device_inline float background_sun_pdf(METAL_ASQ_DEVICE const KernelGlobals *kg, float3 D)
 {
   const float3 N = float4_to_float3(kernel_data.background.sun);
   const float angle = kernel_data.background.sun.w;
@@ -305,7 +314,7 @@ ccl_device_inline float background_sun_pdf(const KernelGlobals *kg, float3 D)
 }
 
 ccl_device_inline float3
-background_light_sample(const KernelGlobals *kg, float3 P, float randu, float randv, float *pdf)
+background_light_sample(METAL_ASQ_DEVICE const KernelGlobals *kg, float3 P, float randu, float randv, METAL_ASQ_THREAD float *pdf)
 {
   float portal_method_pdf = kernel_data.background.portal_weight;
   float sun_method_pdf = kernel_data.background.sun_weight;
@@ -405,7 +414,7 @@ background_light_sample(const KernelGlobals *kg, float3 P, float randu, float ra
   return D;
 }
 
-ccl_device float background_light_pdf(const KernelGlobals *kg, float3 P, float3 direction)
+ccl_device float background_light_pdf(METAL_ASQ_DEVICE const KernelGlobals *kg, float3 P, float3 direction)
 {
   float portal_method_pdf = kernel_data.background.portal_weight;
   float sun_method_pdf = kernel_data.background.sun_weight;
