@@ -44,6 +44,9 @@ class OIDNDenoiser::State {
 #ifdef WITH_OPENIMAGEDENOISE
   oidn::DeviceRef oidn_device;
   oidn::FilterRef oidn_filter;
+
+  bool use_pass_albedo = false;
+  bool use_pass_normal = false;
 #endif
 };
 
@@ -179,15 +182,18 @@ static void oidn_scale_combined_pass_after_denoise(const BufferParams &buffer_pa
 
   float *buffer_data = reinterpret_cast<float *>(render_buffers->buffer.host_pointer);
 
+  const int pass_denoised = buffer_params.get_pass_offset(PASS_COMBINED, PassMode::DENOISED);
+
   for (int y = 0; y < height; ++y) {
     float *buffer_row = buffer_data + buffer_offset + y * row_stride;
     for (int x = 0; x < width; ++x) {
       float *buffer_pixel = buffer_row + x * pixel_stride;
+      float *denoised_pixel = buffer_pixel + pass_denoised;
       const float pixel_scale = __float_as_uint(buffer_pixel[pass_sample_count]);
 
-      buffer_pixel[0] = buffer_pixel[0] * pixel_scale;
-      buffer_pixel[1] = buffer_pixel[1] * pixel_scale;
-      buffer_pixel[2] = buffer_pixel[2] * pixel_scale;
+      denoised_pixel[0] = denoised_pixel[0] * pixel_scale;
+      denoised_pixel[1] = denoised_pixel[1] * pixel_scale;
+      denoised_pixel[2] = denoised_pixel[2] * pixel_scale;
     }
   }
 }
@@ -211,7 +217,7 @@ void OIDNDenoiser::denoise_buffer(const BufferParams &buffer_params,
   oidn::FilterRef *oidn_filter = &state_->oidn_filter;
 
   std::array<OIDNPass, 4> oidn_passes = {{
-      {"color", buffer_params.get_pass_offset(PASS_DENOISING_COLOR), have_sample_count_pass, true},
+      {"color", buffer_params.get_pass_offset(PASS_COMBINED), have_sample_count_pass, true},
       {"albedo",
        buffer_params.get_pass_offset(PASS_DENOISING_ALBEDO),
        true,
@@ -220,7 +226,7 @@ void OIDNDenoiser::denoise_buffer(const BufferParams &buffer_params,
        buffer_params.get_pass_offset(PASS_DENOISING_NORMAL),
        true,
        params_.use_pass_normal},
-      {"output", 0, false, true},
+      {"output", buffer_params.get_pass_offset(PASS_COMBINED, PassMode::DENOISED), false, true},
   }};
 
   const float scale = 1.0f / num_samples;
@@ -269,6 +275,14 @@ DeviceInfo OIDNDenoiser::get_denoiser_device_info() const
 void OIDNDenoiser::initialize()
 {
 #ifdef WITH_OPENIMAGEDENOISE
+  if (state_->oidn_filter) {
+    if (params_.use_pass_albedo != state_->use_pass_albedo ||
+        params_.use_pass_normal != state_->use_pass_normal) {
+      state_->oidn_device = nullptr;
+      state_->oidn_filter = nullptr;
+    }
+  }
+
   if (!state_->oidn_device) {
     state_->oidn_device = oidn::newDevice();
     state_->oidn_device.commit();
@@ -279,6 +293,9 @@ void OIDNDenoiser::initialize()
     state_->oidn_filter.set("hdr", true);
     state_->oidn_filter.set("srgb", false);
   }
+
+  state_->use_pass_albedo = params_.use_pass_albedo;
+  state_->use_pass_normal = params_.use_pass_normal;
 #endif
 }
 
