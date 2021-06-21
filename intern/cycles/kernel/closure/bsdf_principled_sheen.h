@@ -15,6 +15,15 @@
  */
 
 #pragma once
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 
 /* DISNEY PRINCIPLED SHEEN BRDF
  *
@@ -46,7 +55,7 @@ ccl_device_inline float calculate_avg_principled_sheen_brdf(float3 N, float3 I)
 }
 
 ccl_device float3
-calculate_principled_sheen_brdf(float3 N, float3 V, float3 L, float3 H, float *pdf)
+calculate_principled_sheen_brdf(float3 N, float3 V, float3 L, float3 H, METAL_ASQ_THREAD float *pdf)
 {
   float NdotL = dot(N, L);
   float NdotV = dot(N, V);
@@ -63,7 +72,7 @@ calculate_principled_sheen_brdf(float3 N, float3 V, float3 L, float3 H, float *p
   return make_float3(value, value, value);
 }
 
-ccl_device int bsdf_principled_sheen_setup(const ShaderData *sd, PrincipledSheenBsdf *bsdf)
+ccl_device int bsdf_principled_sheen_setup(METAL_ASQ_DEVICE const ShaderData *sd, METAL_ASQ_THREAD PrincipledSheenBsdf *bsdf)
 {
   bsdf->type = CLOSURE_BSDF_PRINCIPLED_SHEEN_ID;
   bsdf->avg_value = calculate_avg_principled_sheen_brdf(bsdf->N, sd->I);
@@ -71,10 +80,10 @@ ccl_device int bsdf_principled_sheen_setup(const ShaderData *sd, PrincipledSheen
   return SD_BSDF | SD_BSDF_HAS_EVAL;
 }
 
-ccl_device float3 bsdf_principled_sheen_eval_reflect(const ShaderClosure *sc,
+ccl_device float3 bsdf_principled_sheen_eval_reflect(METAL_ASQ_THREAD const ShaderClosure *sc,
                                                      const float3 I,
                                                      const float3 omega_in,
-                                                     float *pdf)
+                                                     METAL_ASQ_THREAD float *pdf)
 {
   const PrincipledSheenBsdf *bsdf = (const PrincipledSheenBsdf *)sc;
 
@@ -93,26 +102,26 @@ ccl_device float3 bsdf_principled_sheen_eval_reflect(const ShaderClosure *sc,
   }
 }
 
-ccl_device float3 bsdf_principled_sheen_eval_transmit(const ShaderClosure *sc,
+ccl_device float3 bsdf_principled_sheen_eval_transmit(METAL_ASQ_THREAD const ShaderClosure *sc,
                                                       const float3 I,
                                                       const float3 omega_in,
-                                                      float *pdf)
+                                                      METAL_ASQ_THREAD float *pdf)
 {
   return make_float3(0.0f, 0.0f, 0.0f);
 }
 
-ccl_device int bsdf_principled_sheen_sample(const ShaderClosure *sc,
+ccl_device int bsdf_principled_sheen_sample(METAL_ASQ_THREAD const ShaderClosure *sc,
                                             float3 Ng,
                                             float3 I,
                                             float3 dIdx,
                                             float3 dIdy,
                                             float randu,
                                             float randv,
-                                            float3 *eval,
-                                            float3 *omega_in,
-                                            float3 *domega_in_dx,
-                                            float3 *domega_in_dy,
-                                            float *pdf)
+                                            METAL_ASQ_THREAD float3 *eval,
+                                            METAL_ASQ_THREAD float3 *omega_in,
+                                            METAL_ASQ_THREAD float3 *domega_in_dx,
+                                            METAL_ASQ_THREAD float3 *domega_in_dy,
+                                            METAL_ASQ_THREAD float *pdf)
 {
   const PrincipledSheenBsdf *bsdf = (const PrincipledSheenBsdf *)sc;
 

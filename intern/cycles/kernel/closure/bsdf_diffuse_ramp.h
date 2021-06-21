@@ -31,6 +31,15 @@
  */
 
 #pragma once
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 
 CCL_NAMESPACE_BEGIN
 
@@ -44,7 +53,7 @@ typedef ccl_addr_space struct DiffuseRampBsdf {
 
 static_assert(sizeof(ShaderClosure) >= sizeof(DiffuseRampBsdf), "DiffuseRampBsdf is too large!");
 
-ccl_device float3 bsdf_diffuse_ramp_get_color(const float3 colors[8], float pos)
+ccl_device float3 bsdf_diffuse_ramp_get_color(METAL_ASQ_THREAD const float3 colors[8], float pos)
 {
   int MAXCOLORS = 8;
 
@@ -58,20 +67,20 @@ ccl_device float3 bsdf_diffuse_ramp_get_color(const float3 colors[8], float pos)
   return colors[ipos] * (1.0f - offset) + colors[ipos + 1] * offset;
 }
 
-ccl_device int bsdf_diffuse_ramp_setup(DiffuseRampBsdf *bsdf)
+ccl_device int bsdf_diffuse_ramp_setup(METAL_ASQ_THREAD DiffuseRampBsdf *bsdf)
 {
   bsdf->type = CLOSURE_BSDF_DIFFUSE_RAMP_ID;
   return SD_BSDF | SD_BSDF_HAS_EVAL;
 }
 
-ccl_device void bsdf_diffuse_ramp_blur(ShaderClosure *sc, float roughness)
+ccl_device void bsdf_diffuse_ramp_blur(METAL_ASQ_THREAD ShaderClosure *sc, float roughness)
 {
 }
 
-ccl_device float3 bsdf_diffuse_ramp_eval_reflect(const ShaderClosure *sc,
+ccl_device float3 bsdf_diffuse_ramp_eval_reflect(METAL_ASQ_THREAD const ShaderClosure *sc,
                                                  const float3 I,
                                                  const float3 omega_in,
-                                                 float *pdf)
+                                                 METAL_ASQ_THREAD float *pdf)
 {
   const DiffuseRampBsdf *bsdf = (const DiffuseRampBsdf *)sc;
   float3 N = bsdf->N;
@@ -81,26 +90,26 @@ ccl_device float3 bsdf_diffuse_ramp_eval_reflect(const ShaderClosure *sc,
   return bsdf_diffuse_ramp_get_color(bsdf->colors, cos_pi) * M_1_PI_F;
 }
 
-ccl_device float3 bsdf_diffuse_ramp_eval_transmit(const ShaderClosure *sc,
+ccl_device float3 bsdf_diffuse_ramp_eval_transmit(METAL_ASQ_THREAD const ShaderClosure *sc,
                                                   const float3 I,
                                                   const float3 omega_in,
-                                                  float *pdf)
+                                                  METAL_ASQ_THREAD float *pdf)
 {
   return make_float3(0.0f, 0.0f, 0.0f);
 }
 
-ccl_device int bsdf_diffuse_ramp_sample(const ShaderClosure *sc,
+ccl_device int bsdf_diffuse_ramp_sample(METAL_ASQ_THREAD const ShaderClosure *sc,
                                         float3 Ng,
                                         float3 I,
                                         float3 dIdx,
                                         float3 dIdy,
                                         float randu,
                                         float randv,
-                                        float3 *eval,
-                                        float3 *omega_in,
-                                        float3 *domega_in_dx,
-                                        float3 *domega_in_dy,
-                                        float *pdf)
+                                        METAL_ASQ_THREAD float3 *eval,
+                                        METAL_ASQ_THREAD float3 *omega_in,
+                                        METAL_ASQ_THREAD float3 *domega_in_dx,
+                                        METAL_ASQ_THREAD float3 *domega_in_dy,
+                                        METAL_ASQ_THREAD float *pdf)
 {
   const DiffuseRampBsdf *bsdf = (const DiffuseRampBsdf *)sc;
   float3 N = bsdf->N;

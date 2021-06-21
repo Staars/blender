@@ -16,6 +16,15 @@
 
 #pragma once
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 #ifdef __KERNEL_CPU__
 #  include <fenv.h>
 #endif
@@ -46,7 +55,7 @@ typedef ccl_addr_space struct PrincipledHairBSDF {
   float m0_roughness;
 
   /* Extra closure. */
-  PrincipledHairExtra *extra;
+  METAL_ASQ_THREAD PrincipledHairExtra *extra;
 } PrincipledHairBSDF;
 
 static_assert(sizeof(ShaderClosure) >= sizeof(PrincipledHairBSDF),
@@ -180,14 +189,14 @@ ccl_device_inline float longitudinal_scattering(
 }
 
 /* Combine the three values using their luminances. */
-ccl_device_inline float4 combine_with_energy(const KernelGlobals *kg, float3 c)
+ccl_device_inline float4 combine_with_energy(METAL_ASQ_DEVICE const KernelGlobals *kg, float3 c)
 {
   return make_float4(c.x, c.y, c.z, linear_rgb_to_gray(kg, c));
 }
 
 #ifdef __HAIR__
 /* Set up the hair closure. */
-ccl_device int bsdf_principled_hair_setup(ShaderData *sd, PrincipledHairBSDF *bsdf)
+ccl_device int bsdf_principled_hair_setup(METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD PrincipledHairBSDF *bsdf)
 {
   bsdf->type = CLOSURE_BSDF_HAIR_PRINCIPLED_ID;
   bsdf->v = clamp(bsdf->v, 0.001f, 1.0f);
@@ -228,21 +237,21 @@ ccl_device int bsdf_principled_hair_setup(ShaderData *sd, PrincipledHairBSDF *bs
 #endif /* __HAIR__ */
 
 /* Given the Fresnel term and transmittance, generate the attenuation terms for each bounce. */
-ccl_device_inline void hair_attenuation(const KernelGlobals *kg, float f, float3 T, float4 *Ap)
+ccl_device_inline void hair_attenuation(METAL_ASQ_DEVICE const KernelGlobals *kg, float f, float3 t, METAL_ASQ_THREAD float4 *Ap)
 {
   /* Primary specular (R). */
   Ap[0] = make_float4(f, f, f, f);
 
   /* Transmission (TT). */
-  float3 col = sqr(1.0f - f) * T;
+  float3 col = sqr(1.0f - f) * t;
   Ap[1] = combine_with_energy(kg, col);
 
   /* Secondary specular (TRT). */
-  col *= T * f;
+  col *= t * f;
   Ap[2] = combine_with_energy(kg, col);
 
   /* Residual component (TRRT+). */
-  col *= safe_divide_color(T * f, make_float3(1.0f, 1.0f, 1.0f) - T * f);
+  col *= safe_divide_color(t * f, make_float3(1.0f, 1.0f, 1.0f) - t * f);
   Ap[3] = combine_with_energy(kg, col);
 
   /* Normalize sampling weights. */
@@ -259,7 +268,7 @@ ccl_device_inline void hair_attenuation(const KernelGlobals *kg, float f, float3
 ccl_device_inline void hair_alpha_angles(float sin_theta_i,
                                          float cos_theta_i,
                                          float alpha,
-                                         float *angles)
+                                         METAL_ASQ_THREAD float *angles)
 {
   float sin_1alpha = sinf(alpha);
   float cos_1alpha = cos_from_sin(sin_1alpha);
@@ -277,11 +286,11 @@ ccl_device_inline void hair_alpha_angles(float sin_theta_i,
 }
 
 /* Evaluation function for our shader. */
-ccl_device float3 bsdf_principled_hair_eval(const KernelGlobals *kg,
-                                            const ShaderData *sd,
-                                            const ShaderClosure *sc,
+ccl_device float3 bsdf_principled_hair_eval(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                            METAL_ASQ_DEVICE const ShaderData *sd,
+                                            METAL_ASQ_THREAD const ShaderClosure *sc,
                                             const float3 omega_in,
-                                            float *pdf)
+                                            METAL_ASQ_THREAD float *pdf)
 {
   kernel_assert(isfinite3_safe(sd->P) && isfinite_safe(sd->ray_length));
 
@@ -310,9 +319,9 @@ ccl_device float3 bsdf_principled_hair_eval(const KernelGlobals *kg,
   float cos_gamma_t = cos_from_sin(sin_gamma_t);
   float gamma_t = safe_asinf(sin_gamma_t);
 
-  float3 T = exp3(-bsdf->sigma * (2.0f * cos_gamma_t / cos_theta_t));
+  float3 t = exp3(-bsdf->sigma * (2.0f * cos_gamma_t / cos_theta_t));
   float4 Ap[4];
-  hair_attenuation(kg, fresnel_dielectric_cos(cos_theta_o * cos_gamma_o, bsdf->eta), T, Ap);
+  hair_attenuation(kg, fresnel_dielectric_cos(cos_theta_o * cos_gamma_o, bsdf->eta), t, Ap);
 
   float sin_theta_i = wi.x;
   float cos_theta_i = cos_from_sin(sin_theta_i);
@@ -355,16 +364,16 @@ ccl_device float3 bsdf_principled_hair_eval(const KernelGlobals *kg,
 }
 
 /* Sampling function for the hair shader. */
-ccl_device int bsdf_principled_hair_sample(const KernelGlobals *kg,
-                                           const ShaderClosure *sc,
-                                           ShaderData *sd,
+ccl_device int bsdf_principled_hair_sample(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                           METAL_ASQ_THREAD const ShaderClosure *sc,
+                                           METAL_ASQ_DEVICE ShaderData *sd,
                                            float randu,
                                            float randv,
-                                           float3 *eval,
-                                           float3 *omega_in,
-                                           float3 *domega_in_dx,
-                                           float3 *domega_in_dy,
-                                           float *pdf)
+                                           METAL_ASQ_THREAD float3 *eval,
+                                           METAL_ASQ_THREAD float3 *omega_in,
+                                           METAL_ASQ_THREAD float3 *domega_in_dx,
+                                           METAL_ASQ_THREAD float3 *domega_in_dy,
+                                           METAL_ASQ_THREAD float *pdf)
 {
   PrincipledHairBSDF *bsdf = (PrincipledHairBSDF *)sc;
 
@@ -396,9 +405,9 @@ ccl_device int bsdf_principled_hair_sample(const KernelGlobals *kg,
   float cos_gamma_t = cos_from_sin(sin_gamma_t);
   float gamma_t = safe_asinf(sin_gamma_t);
 
-  float3 T = exp3(-bsdf->sigma * (2.0f * cos_gamma_t / cos_theta_t));
+  float3 t = exp3(-bsdf->sigma * (2.0f * cos_gamma_t / cos_theta_t));
   float4 Ap[4];
-  hair_attenuation(kg, fresnel_dielectric_cos(cos_theta_o * cos_gamma_o, bsdf->eta), T, Ap);
+  hair_attenuation(kg, fresnel_dielectric_cos(cos_theta_o * cos_gamma_o, bsdf->eta), t, Ap);
 
   int p = 0;
   for (; p < 3; p++) {
@@ -482,7 +491,7 @@ ccl_device int bsdf_principled_hair_sample(const KernelGlobals *kg,
 }
 
 /* Implements Filter Glossy by capping the effective roughness. */
-ccl_device void bsdf_principled_hair_blur(ShaderClosure *sc, float roughness)
+ccl_device void bsdf_principled_hair_blur(METAL_ASQ_THREAD ShaderClosure *sc, float roughness)
 {
   PrincipledHairBSDF *bsdf = (PrincipledHairBSDF *)sc;
 
@@ -500,7 +509,7 @@ ccl_device_inline float bsdf_principled_hair_albedo_roughness_scale(
   return (((((0.245f * x) + 5.574f) * x - 10.73f) * x + 2.532f) * x - 0.215f) * x + 5.969f;
 }
 
-ccl_device float3 bsdf_principled_hair_albedo(const ShaderClosure *sc)
+ccl_device float3 bsdf_principled_hair_albedo(METAL_ASQ_THREAD const ShaderClosure *sc)
 {
   PrincipledHairBSDF *bsdf = (PrincipledHairBSDF *)sc;
   return exp3(-sqrt(bsdf->sigma) * bsdf_principled_hair_albedo_roughness_scale(bsdf->v));

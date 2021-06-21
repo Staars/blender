@@ -16,6 +16,16 @@
 
 #pragma once
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
+
 /* DISNEY PRINCIPLED DIFFUSE BRDF
  *
  * Shading model by Brent Burley (Disney): "Physically Based Shading at Disney" (2012)
@@ -35,7 +45,7 @@ static_assert(sizeof(ShaderClosure) >= sizeof(PrincipledDiffuseBsdf),
               "PrincipledDiffuseBsdf is too large!");
 
 ccl_device float3 calculate_principled_diffuse_brdf(
-    const PrincipledDiffuseBsdf *bsdf, float3 N, float3 V, float3 L, float3 H, float *pdf)
+                                                    METAL_ASQ_THREAD const METAL_ASQ_THREAD PrincipledDiffuseBsdf *bsdf, float3 N, float3 V, float3 L, float3 H, METAL_ASQ_THREAD float *pdf)
 {
   float NdotL = max(dot(N, L), 0.0f);
   float NdotV = max(dot(N, V), 0.0f);
@@ -56,13 +66,13 @@ ccl_device float3 calculate_principled_diffuse_brdf(
   return make_float3(value, value, value);
 }
 
-ccl_device int bsdf_principled_diffuse_setup(PrincipledDiffuseBsdf *bsdf)
+ccl_device int bsdf_principled_diffuse_setup(METAL_ASQ_THREAD PrincipledDiffuseBsdf *bsdf)
 {
   bsdf->type = CLOSURE_BSDF_PRINCIPLED_DIFFUSE_ID;
   return SD_BSDF | SD_BSDF_HAS_EVAL;
 }
 
-ccl_device bool bsdf_principled_diffuse_merge(const ShaderClosure *a, const ShaderClosure *b)
+ccl_device bool bsdf_principled_diffuse_merge(METAL_ASQ_THREAD const ShaderClosure *a, METAL_ASQ_THREAD const ShaderClosure *b)
 {
   const PrincipledDiffuseBsdf *bsdf_a = (const PrincipledDiffuseBsdf *)a;
   const PrincipledDiffuseBsdf *bsdf_b = (const PrincipledDiffuseBsdf *)b;
@@ -70,10 +80,10 @@ ccl_device bool bsdf_principled_diffuse_merge(const ShaderClosure *a, const Shad
   return (isequal_float3(bsdf_a->N, bsdf_b->N) && bsdf_a->roughness == bsdf_b->roughness);
 }
 
-ccl_device float3 bsdf_principled_diffuse_eval_reflect(const ShaderClosure *sc,
+ccl_device float3 bsdf_principled_diffuse_eval_reflect(METAL_ASQ_THREAD const ShaderClosure *sc,
                                                        const float3 I,
                                                        const float3 omega_in,
-                                                       float *pdf)
+                                                       METAL_ASQ_THREAD float *pdf)
 {
   const PrincipledDiffuseBsdf *bsdf = (const PrincipledDiffuseBsdf *)sc;
 
@@ -92,26 +102,26 @@ ccl_device float3 bsdf_principled_diffuse_eval_reflect(const ShaderClosure *sc,
   }
 }
 
-ccl_device float3 bsdf_principled_diffuse_eval_transmit(const ShaderClosure *sc,
+ccl_device float3 bsdf_principled_diffuse_eval_transmit(METAL_ASQ_THREAD const ShaderClosure *sc,
                                                         const float3 I,
                                                         const float3 omega_in,
-                                                        float *pdf)
+                                                        METAL_ASQ_THREAD float *pdf)
 {
   return make_float3(0.0f, 0.0f, 0.0f);
 }
 
-ccl_device int bsdf_principled_diffuse_sample(const ShaderClosure *sc,
+ccl_device int bsdf_principled_diffuse_sample(METAL_ASQ_THREAD const ShaderClosure *sc,
                                               float3 Ng,
                                               float3 I,
                                               float3 dIdx,
                                               float3 dIdy,
                                               float randu,
                                               float randv,
-                                              float3 *eval,
-                                              float3 *omega_in,
-                                              float3 *domega_in_dx,
-                                              float3 *domega_in_dy,
-                                              float *pdf)
+                                              METAL_ASQ_THREAD float3 *eval,
+                                              METAL_ASQ_THREAD float3 *omega_in,
+                                              METAL_ASQ_THREAD float3 *domega_in_dx,
+                                              METAL_ASQ_THREAD float3 *domega_in_dy,
+                                              METAL_ASQ_THREAD float *pdf)
 {
   const PrincipledDiffuseBsdf *bsdf = (const PrincipledDiffuseBsdf *)sc;
 

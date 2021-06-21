@@ -28,9 +28,18 @@
 
 #pragma once
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 CCL_NAMESPACE_BEGIN
 
-ccl_device int bsdf_ashikhmin_shirley_setup(MicrofacetBsdf *bsdf)
+ccl_device int bsdf_ashikhmin_shirley_setup(METAL_ASQ_THREAD MicrofacetBsdf *bsdf)
 {
   bsdf->alpha_x = clamp(bsdf->alpha_x, 1e-4f, 1.0f);
   bsdf->alpha_y = clamp(bsdf->alpha_y, 1e-4f, 1.0f);
@@ -39,7 +48,7 @@ ccl_device int bsdf_ashikhmin_shirley_setup(MicrofacetBsdf *bsdf)
   return SD_BSDF | SD_BSDF_HAS_EVAL;
 }
 
-ccl_device void bsdf_ashikhmin_shirley_blur(ShaderClosure *sc, float roughness)
+ccl_device void bsdf_ashikhmin_shirley_blur(METAL_ASQ_THREAD ShaderClosure *sc, float roughness)
 {
   MicrofacetBsdf *bsdf = (MicrofacetBsdf *)sc;
 
@@ -52,10 +61,10 @@ ccl_device_inline float bsdf_ashikhmin_shirley_roughness_to_exponent(float rough
   return 2.0f / (roughness * roughness) - 2.0f;
 }
 
-ccl_device_forceinline float3 bsdf_ashikhmin_shirley_eval_reflect(const ShaderClosure *sc,
+ccl_device_forceinline float3 bsdf_ashikhmin_shirley_eval_reflect(METAL_ASQ_THREAD const ShaderClosure *sc,
                                                                   const float3 I,
                                                                   const float3 omega_in,
-                                                                  float *pdf)
+                                                                  METAL_ASQ_THREAD float *pdf)
 {
   const MicrofacetBsdf *bsdf = (const MicrofacetBsdf *)sc;
   float3 N = bsdf->N;
@@ -119,16 +128,16 @@ ccl_device_forceinline float3 bsdf_ashikhmin_shirley_eval_reflect(const ShaderCl
   return make_float3(out, out, out);
 }
 
-ccl_device float3 bsdf_ashikhmin_shirley_eval_transmit(const ShaderClosure *sc,
+ccl_device float3 bsdf_ashikhmin_shirley_eval_transmit(METAL_ASQ_THREAD const ShaderClosure *sc,
                                                        const float3 I,
                                                        const float3 omega_in,
-                                                       float *pdf)
+                                                       METAL_ASQ_THREAD float *pdf)
 {
   return make_float3(0.0f, 0.0f, 0.0f);
 }
 
 ccl_device_inline void bsdf_ashikhmin_shirley_sample_first_quadrant(
-    float n_x, float n_y, float randu, float randv, float *phi, float *cos_theta)
+    float n_x, float n_y, float randu, float randv, METAL_ASQ_THREAD float *phi, METAL_ASQ_THREAD float *cos_theta)
 {
   *phi = atanf(sqrtf((n_x + 1.0f) / (n_y + 1.0f)) * tanf(M_PI_2_F * randu));
   float cos_phi = cosf(*phi);
@@ -136,18 +145,18 @@ ccl_device_inline void bsdf_ashikhmin_shirley_sample_first_quadrant(
   *cos_theta = powf(randv, 1.0f / (n_x * cos_phi * cos_phi + n_y * sin_phi * sin_phi + 1.0f));
 }
 
-ccl_device int bsdf_ashikhmin_shirley_sample(const ShaderClosure *sc,
+ccl_device int bsdf_ashikhmin_shirley_sample(METAL_ASQ_THREAD const ShaderClosure *sc,
                                              float3 Ng,
                                              float3 I,
                                              float3 dIdx,
                                              float3 dIdy,
                                              float randu,
                                              float randv,
-                                             float3 *eval,
-                                             float3 *omega_in,
-                                             float3 *domega_in_dx,
-                                             float3 *domega_in_dy,
-                                             float *pdf)
+                                             METAL_ASQ_THREAD float3 *eval,
+                                             METAL_ASQ_THREAD float3 *omega_in,
+                                             METAL_ASQ_THREAD float3 *domega_in_dx,
+                                             METAL_ASQ_THREAD float3 *domega_in_dy,
+                                             METAL_ASQ_THREAD float *pdf)
 {
   const MicrofacetBsdf *bsdf = (const MicrofacetBsdf *)sc;
   float3 N = bsdf->N;

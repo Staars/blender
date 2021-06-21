@@ -15,6 +15,15 @@
  */
 
 #pragma once
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 
 CCL_NAMESPACE_BEGIN
 
@@ -61,7 +70,7 @@ ccl_device float bssrdf_gaussian_pdf(const float radius, float r)
   return bssrdf_gaussian_eval(radius, r) * (1.0f / (area_truncated));
 }
 
-ccl_device void bssrdf_gaussian_sample(const float radius, float xi, float *r, float *h)
+ccl_device void bssrdf_gaussian_sample(const float radius, float xi, METAL_ASQ_THREAD float *r, METAL_ASQ_THREAD float *h)
 {
   /* xi = integrate (2*pi*r * exp(-r*r/(2*v)))/(2*pi*v)) = -exp(-r^2/(2*v))
    * r = sqrt(-2*v*logf(xi)) */
@@ -164,7 +173,7 @@ ccl_device_forceinline float bssrdf_cubic_quintic_root_find(float xi)
 }
 
 ccl_device void bssrdf_cubic_sample(
-    const float radius, const float sharpness, float xi, float *r, float *h)
+    const float radius, const float sharpness, float xi, METAL_ASQ_THREAD float *r, METAL_ASQ_THREAD float *h)
 {
   float Rm = radius;
   float r_ = bssrdf_cubic_quintic_root_find(xi);
@@ -206,7 +215,7 @@ ccl_device_inline float3 bssrdf_burley_compatible_mfp(float3 r)
   return 0.25f * M_1_PI_F * r;
 }
 
-ccl_device void bssrdf_burley_setup(Bssrdf *bssrdf)
+ccl_device void bssrdf_burley_setup(METAL_ASQ_THREAD Bssrdf *bssrdf)
 {
   /* Mean free path length. */
   const float3 l = bssrdf_burley_compatible_mfp(bssrdf->radius);
@@ -283,7 +292,7 @@ ccl_device_forceinline float bssrdf_burley_root_find(float xi)
   return r;
 }
 
-ccl_device void bssrdf_burley_sample(const float d, float xi, float *r, float *h)
+ccl_device void bssrdf_burley_sample(const float d, float xi, METAL_ASQ_THREAD float *r, METAL_ASQ_THREAD float *h)
 {
   const float Rm = BURLEY_TRUNCATE * d;
   const float r_ = bssrdf_burley_root_find(xi * BURLEY_TRUNCATE_CDF) * d;
@@ -313,7 +322,7 @@ ccl_device float bssrdf_none_pdf(const float radius, float r)
   return bssrdf_none_eval(radius, r) / area;
 }
 
-ccl_device void bssrdf_none_sample(const float radius, float xi, float *r, float *h)
+ccl_device void bssrdf_none_sample(const float radius, float xi, METAL_ASQ_THREAD float *r, METAL_ASQ_THREAD float *h)
 {
   /* xi = integrate (2*pi*r)/(pi*Rm*Rm) = r^2/Rm^2
    * r = sqrt(xi)*Rm */
@@ -328,7 +337,7 @@ ccl_device void bssrdf_none_sample(const float radius, float xi, float *r, float
 
 /* Generic */
 
-ccl_device_inline Bssrdf *bssrdf_alloc(ShaderData *sd, float3 weight)
+ccl_device_inline Bssrdf *bssrdf_alloc(METAL_ASQ_DEVICE ShaderData *sd, float3 weight)
 {
   Bssrdf *bssrdf = (Bssrdf *)closure_alloc(sd, sizeof(Bssrdf), CLOSURE_NONE_ID, weight);
 
@@ -341,7 +350,7 @@ ccl_device_inline Bssrdf *bssrdf_alloc(ShaderData *sd, float3 weight)
   return (sample_weight >= CLOSURE_WEIGHT_CUTOFF) ? bssrdf : NULL;
 }
 
-ccl_device int bssrdf_setup(ShaderData *sd, Bssrdf *bssrdf, ClosureType type)
+ccl_device int bssrdf_setup(METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD Bssrdf *bssrdf, ClosureType type)
 {
   int flag = 0;
   int bssrdf_channels = 3;
@@ -421,7 +430,7 @@ ccl_device int bssrdf_setup(ShaderData *sd, Bssrdf *bssrdf, ClosureType type)
   return flag;
 }
 
-ccl_device void bssrdf_sample(const ShaderClosure *sc, float xi, float *r, float *h)
+ccl_device void bssrdf_sample(METAL_ASQ_THREAD const ShaderClosure *sc, float xi, float *r, float *h)
 {
   const Bssrdf *bssrdf = (const Bssrdf *)sc;
   float radius;
@@ -458,7 +467,7 @@ ccl_device void bssrdf_sample(const ShaderClosure *sc, float xi, float *r, float
   }
 }
 
-ccl_device float bssrdf_channel_pdf(const Bssrdf *bssrdf, float radius, float r)
+ccl_device float bssrdf_channel_pdf(METAL_ASQ_THREAD const Bssrdf *bssrdf, float radius, float r)
 {
   if (radius == 0.0f) {
     return 0.0f;
@@ -475,7 +484,7 @@ ccl_device float bssrdf_channel_pdf(const Bssrdf *bssrdf, float radius, float r)
   }
 }
 
-ccl_device_forceinline float3 bssrdf_eval(const ShaderClosure *sc, float r)
+ccl_device_forceinline float3 bssrdf_eval(METAL_ASQ_THREAD const ShaderClosure *sc, float r)
 {
   const Bssrdf *bssrdf = (const Bssrdf *)sc;
 
@@ -484,7 +493,7 @@ ccl_device_forceinline float3 bssrdf_eval(const ShaderClosure *sc, float r)
                      bssrdf_channel_pdf(bssrdf, bssrdf->radius.z, r));
 }
 
-ccl_device_forceinline float bssrdf_pdf(const ShaderClosure *sc, float r)
+ccl_device_forceinline float bssrdf_pdf(METAL_ASQ_THREAD const ShaderClosure *sc, float r)
 {
   const Bssrdf *bssrdf = (const Bssrdf *)sc;
   float3 pdf = bssrdf_eval(sc, r);

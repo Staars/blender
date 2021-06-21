@@ -32,6 +32,14 @@
 
 #pragma once
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
 CCL_NAMESPACE_BEGIN
 
 typedef ccl_addr_space struct ToonBsdf {
@@ -45,7 +53,7 @@ static_assert(sizeof(ShaderClosure) >= sizeof(ToonBsdf), "ToonBsdf is too large!
 
 /* DIFFUSE TOON */
 
-ccl_device int bsdf_diffuse_toon_setup(ToonBsdf *bsdf)
+ccl_device int bsdf_diffuse_toon_setup(METAL_ASQ_THREAD ToonBsdf *bsdf)
 {
   bsdf->type = CLOSURE_BSDF_DIFFUSE_TOON_ID;
   bsdf->size = saturate(bsdf->size);
@@ -54,7 +62,7 @@ ccl_device int bsdf_diffuse_toon_setup(ToonBsdf *bsdf)
   return SD_BSDF | SD_BSDF_HAS_EVAL;
 }
 
-ccl_device bool bsdf_toon_merge(const ShaderClosure *a, const ShaderClosure *b)
+ccl_device bool bsdf_toon_merge(METAL_ASQ_THREAD const ShaderClosure *a, METAL_ASQ_THREAD const ShaderClosure *b)
 {
   const ToonBsdf *bsdf_a = (const ToonBsdf *)a;
   const ToonBsdf *bsdf_b = (const ToonBsdf *)b;
@@ -82,10 +90,10 @@ ccl_device float bsdf_toon_get_sample_angle(float max_angle, float smooth)
   return fminf(max_angle + smooth, M_PI_2_F);
 }
 
-ccl_device float3 bsdf_diffuse_toon_eval_reflect(const ShaderClosure *sc,
+ccl_device float3 bsdf_diffuse_toon_eval_reflect(METAL_ASQ_THREAD const ShaderClosure *sc,
                                                  const float3 I,
                                                  const float3 omega_in,
-                                                 float *pdf)
+                                                 METAL_ASQ_THREAD float *pdf)
 {
   const ToonBsdf *bsdf = (const ToonBsdf *)sc;
   float max_angle = bsdf->size * M_PI_2_F;
@@ -104,26 +112,26 @@ ccl_device float3 bsdf_diffuse_toon_eval_reflect(const ShaderClosure *sc,
   return make_float3(0.0f, 0.0f, 0.0f);
 }
 
-ccl_device float3 bsdf_diffuse_toon_eval_transmit(const ShaderClosure *sc,
+ccl_device float3 bsdf_diffuse_toon_eval_transmit(METAL_ASQ_THREAD const ShaderClosure *sc,
                                                   const float3 I,
                                                   const float3 omega_in,
-                                                  float *pdf)
+                                                  METAL_ASQ_THREAD float *pdf)
 {
   return make_float3(0.0f, 0.0f, 0.0f);
 }
 
-ccl_device int bsdf_diffuse_toon_sample(const ShaderClosure *sc,
+ccl_device int bsdf_diffuse_toon_sample(METAL_ASQ_THREAD const ShaderClosure *sc,
                                         float3 Ng,
                                         float3 I,
                                         float3 dIdx,
                                         float3 dIdy,
                                         float randu,
                                         float randv,
-                                        float3 *eval,
-                                        float3 *omega_in,
-                                        float3 *domega_in_dx,
-                                        float3 *domega_in_dy,
-                                        float *pdf)
+                                        METAL_ASQ_THREAD float3 *eval,
+                                        METAL_ASQ_THREAD float3 *omega_in,
+                                        METAL_ASQ_THREAD float3 *domega_in_dx,
+                                        METAL_ASQ_THREAD float3 *domega_in_dy,
+                                        METAL_ASQ_THREAD float *pdf)
 {
   const ToonBsdf *bsdf = (const ToonBsdf *)sc;
   float max_angle = bsdf->size * M_PI_2_F;
@@ -152,7 +160,7 @@ ccl_device int bsdf_diffuse_toon_sample(const ShaderClosure *sc,
 
 /* GLOSSY TOON */
 
-ccl_device int bsdf_glossy_toon_setup(ToonBsdf *bsdf)
+ccl_device int bsdf_glossy_toon_setup(METAL_ASQ_THREAD ToonBsdf *bsdf)
 {
   bsdf->type = CLOSURE_BSDF_GLOSSY_TOON_ID;
   bsdf->size = saturate(bsdf->size);
@@ -161,10 +169,10 @@ ccl_device int bsdf_glossy_toon_setup(ToonBsdf *bsdf)
   return SD_BSDF | SD_BSDF_HAS_EVAL;
 }
 
-ccl_device float3 bsdf_glossy_toon_eval_reflect(const ShaderClosure *sc,
+ccl_device float3 bsdf_glossy_toon_eval_reflect(METAL_ASQ_THREAD const ShaderClosure *sc,
                                                 const float3 I,
                                                 const float3 omega_in,
-                                                float *pdf)
+                                                METAL_ASQ_THREAD float *pdf)
 {
   const ToonBsdf *bsdf = (const ToonBsdf *)sc;
   float max_angle = bsdf->size * M_PI_2_F;
@@ -189,26 +197,26 @@ ccl_device float3 bsdf_glossy_toon_eval_reflect(const ShaderClosure *sc,
   return make_float3(0.0f, 0.0f, 0.0f);
 }
 
-ccl_device float3 bsdf_glossy_toon_eval_transmit(const ShaderClosure *sc,
+ccl_device float3 bsdf_glossy_toon_eval_transmit(METAL_ASQ_THREAD const ShaderClosure *sc,
                                                  const float3 I,
                                                  const float3 omega_in,
-                                                 float *pdf)
+                                                 METAL_ASQ_THREAD float *pdf)
 {
   return make_float3(0.0f, 0.0f, 0.0f);
 }
 
-ccl_device int bsdf_glossy_toon_sample(const ShaderClosure *sc,
+ccl_device int bsdf_glossy_toon_sample(METAL_ASQ_THREAD const ShaderClosure *sc,
                                        float3 Ng,
                                        float3 I,
                                        float3 dIdx,
                                        float3 dIdy,
                                        float randu,
                                        float randv,
-                                       float3 *eval,
-                                       float3 *omega_in,
-                                       float3 *domega_in_dx,
-                                       float3 *domega_in_dy,
-                                       float *pdf)
+                                       METAL_ASQ_THREAD float3 *eval,
+                                       METAL_ASQ_THREAD float3 *omega_in,
+                                       METAL_ASQ_THREAD float3 *domega_in_dx,
+                                       METAL_ASQ_THREAD float3 *domega_in_dy,
+                                       METAL_ASQ_THREAD float *pdf)
 {
   const ToonBsdf *bsdf = (const ToonBsdf *)sc;
   float max_angle = bsdf->size * M_PI_2_F;
