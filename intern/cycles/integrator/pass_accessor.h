@@ -40,6 +40,7 @@ class PassAccessor {
     PassAccessInfo(const Pass &pass, const Film &film, const vector<Pass> &passes);
 
     PassType type = PASS_NONE;
+    PassMode mode = PassMode::NOISY;
     int offset = -1;
 
     /* For the shadow catcher matte pass: whether to approximate shadow catcher pass into its
@@ -65,7 +66,8 @@ class PassAccessor {
     half4 *pixels_half_rgba = nullptr;
 
     /* Device-side pointers. */
-    device_ptr d_pixels_half_rgba;
+    device_ptr d_pixels = 0;
+    device_ptr d_pixels_half_rgba = 0;
 
     int num_components = 0;
   };

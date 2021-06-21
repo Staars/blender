@@ -243,6 +243,8 @@ PassInfo Pass::get_info(PassType type)
   pass_info.use_exposure = false;
   pass_info.divide_type = PASS_NONE;
   pass_info.is_aligned = true;
+  pass_info.use_compositing = false;
+  pass_info.use_denoising_albedo = true;
 
   switch (type) {
     case PASS_NONE:
@@ -343,10 +345,15 @@ PassInfo Pass::get_info(PassType type)
     case PASS_SHADOW_CATCHER:
       pass_info.num_components = 4;
       pass_info.use_exposure = true;
+      pass_info.use_compositing = true;
+      pass_info.use_denoising_albedo = false;
       break;
     case PASS_SHADOW_CATCHER_MATTE:
       pass_info.num_components = 4;
       pass_info.use_exposure = true;
+      /* Without shadow catcher approximation compositing is not needed.
+       * Since we don't know here whether approximation is used or not, leave the decision up to
+       * the caller which will know that. */
       break;
 
     case PASS_ADAPTIVE_AUX_BUFFER:
@@ -378,6 +385,10 @@ PassInfo Pass::get_info(PassType type)
       LOG(DFATAL) << "Unexpected pass type is used " << type;
       pass_info.num_components = 0;
       break;
+  }
+
+  if (pass_info.divide_type != PASS_NONE) {
+    pass_info.use_compositing = true;
   }
 
   return pass_info;

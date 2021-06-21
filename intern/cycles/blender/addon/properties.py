@@ -133,7 +133,7 @@ enum_view3d_shading_render_pass = (
     ('EMISSION', "Emission", "Show the Emission render pass", 2),
     ('BACKGROUND', "Background", "Show the Background render pass", 3),
     ('AO', "Ambient Occlusion", "Show the Ambient Occlusion render pass", 4),
-    ('SHADOW_CATCHER', "Shadow Catcher", "Show the Shadow Catcher render pass", 53),
+    ('SHADOW_CATCHER', "Shadow Catcher", "Show the Shadow Catcher render pass", 52),
 
     ('', "Light", ""),
 
@@ -278,6 +278,15 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
         description="Number of samples to render in the viewport, unlimited if 0",
         min=0, max=(1 << 24),
         default=32,
+    )
+
+    # TODO: Use proper subtype to show units in the UI.
+    time_limit: FloatProperty(
+        name="Time Limit",
+        description="Limit the render time (excluding synchronization time)."
+        "Zero disables the limit",
+        min=0.0,
+        default=0.0,
     )
 
     sampling_pattern: EnumProperty(
