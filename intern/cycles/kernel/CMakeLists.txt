@@ -87,7 +87,6 @@ set(SRC_HEADERS
   kernel_passes.h
   kernel_path.h
   kernel_path_state.h
-  kernel_path_volume.h
   kernel_profiling.h
   kernel_projection.h
   kernel_random.h
@@ -97,7 +96,6 @@ set(SRC_HEADERS
   kernel_subsurface.h
   kernel_textures.h
   kernel_types.h
-  kernel_volume.h
   kernel_work_stealing.h
   kernel_write_passes.h
 )

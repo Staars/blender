@@ -41,8 +41,8 @@
 
 CCL_NAMESPACE_BEGIN
 
-OptiXDevice::Denoiser::Denoiser(CUDADevice *device)
-    : device(device), state(device, "__denoiser_state")
+OptiXDevice::Denoiser::Denoiser(OptiXDevice *device)
+    : device(device), queue(device), state(device, "__denoiser_state")
 {
 }
 
@@ -232,12 +232,13 @@ bool OptiXDevice::load_kernels(const DeviceRequestedFeatures &requested_features
 #  if OPTIX_ABI_VERSION >= 36
   pipeline_options.usesPrimitiveTypeFlags = OPTIX_PRIMITIVE_TYPE_FLAGS_TRIANGLE;
   if (requested_features.use_hair) {
-    if (DebugFlags().optix.use_curves_api && requested_features.use_hair_thick) {
+#    if OPTIX_ABI_VERSION >= 47
+    if (requested_features.use_hair_thick) {
       pipeline_options.usesPrimitiveTypeFlags |= OPTIX_PRIMITIVE_TYPE_FLAGS_ROUND_CUBIC_BSPLINE;
     }
-    else {
+    else
+#    endif
       pipeline_options.usesPrimitiveTypeFlags |= OPTIX_PRIMITIVE_TYPE_FLAGS_CUSTOM;
-    }
   }
 #  endif
 
@@ -337,8 +338,8 @@ bool OptiXDevice::load_kernels(const DeviceRequestedFeatures &requested_features
       group_descs[PG_HITS].hitgroup.entryFunctionNameIS = "__intersection__curve_ribbon";
     }
 
-#  if OPTIX_ABI_VERSION >= 36
-    if (DebugFlags().optix.use_curves_api && requested_features.use_hair_thick) {
+#  if OPTIX_ABI_VERSION >= 47
+    if (requested_features.use_hair_thick) {
       OptixBuiltinISOptions builtin_options = {};
       builtin_options.builtinISModuleType = OPTIX_PRIMITIVE_TYPE_ROUND_CUBIC_BSPLINE;
       builtin_options.usesMotionBlur = false;
@@ -409,7 +410,7 @@ bool OptiXDevice::load_kernels(const DeviceRequestedFeatures &requested_features
   trace_css = std::max(trace_css, stack_size[PG_HITD].cssIS + stack_size[PG_HITD].cssAH);
   trace_css = std::max(trace_css, stack_size[PG_HITS].cssIS + stack_size[PG_HITS].cssAH);
   trace_css = std::max(trace_css, stack_size[PG_HITL].cssIS + stack_size[PG_HITL].cssAH);
-#  if OPTIX_ABI_VERSION >= 36
+#  if OPTIX_ABI_VERSION >= 47
   trace_css = std::max(trace_css,
                        stack_size[PG_HITD_MOTION].cssIS + stack_size[PG_HITD_MOTION].cssAH);
   trace_css = std::max(trace_css,
@@ -439,7 +440,7 @@ bool OptiXDevice::load_kernels(const DeviceRequestedFeatures &requested_features
     pipeline_groups.push_back(groups[PG_HITD]);
     pipeline_groups.push_back(groups[PG_HITS]);
     pipeline_groups.push_back(groups[PG_HITL]);
-#  if OPTIX_ABI_VERSION >= 36
+#  if OPTIX_ABI_VERSION >= 47
     if (motion_blur) {
       pipeline_groups.push_back(groups[PG_HITD_MOTION]);
       pipeline_groups.push_back(groups[PG_HITS_MOTION]);
@@ -478,7 +479,7 @@ bool OptiXDevice::load_kernels(const DeviceRequestedFeatures &requested_features
     pipeline_groups.push_back(groups[PG_HITD]);
     pipeline_groups.push_back(groups[PG_HITS]);
     pipeline_groups.push_back(groups[PG_HITL]);
-#  if OPTIX_ABI_VERSION >= 36
+#  if OPTIX_ABI_VERSION >= 47
     if (motion_blur) {
       pipeline_groups.push_back(groups[PG_HITD_MOTION]);
       pipeline_groups.push_back(groups[PG_HITS_MOTION]);
@@ -541,8 +542,7 @@ static int denoise_buffer_pass_stride(const DenoiseParams &params)
 class OptiXDevice::DenoiseContext {
  public:
   explicit DenoiseContext(OptiXDevice *device, const DeviceDenoiseTask &task)
-      : queue(device),
-        denoise_params(task.params),
+      : denoise_params(task.params),
         render_buffers(task.render_buffers),
         buffer_params(task.buffer_params),
         input_rgb(device, "denoiser input rgb"),
@@ -553,8 +553,6 @@ class OptiXDevice::DenoiseContext {
 
     pass_sample_count = buffer_params.get_pass_offset(PASS_SAMPLE_COUNT);
   }
-
-  OptiXDeviceQueue queue;
 
   const DenoiseParams &denoise_params;
 
@@ -590,6 +588,11 @@ void OptiXDevice::denoise_buffer(const DeviceDenoiseTask &task)
   denoise_pass(context, PASS_COMBINED);
   denoise_pass(context, PASS_SHADOW_CATCHER);
   denoise_pass(context, PASS_SHADOW_CATCHER_MATTE);
+}
+
+DeviceQueue *OptiXDevice::get_denoise_queue()
+{
+  return &denoiser_.queue;
 }
 
 void OptiXDevice::denoise_pass(DenoiseContext &context, PassType pass_type)
@@ -634,10 +637,10 @@ void OptiXDevice::denoise_pass(DenoiseContext &context, PassType pass_type)
     return;
   }
 
-  context.queue.synchronize();
+  denoiser_.queue.synchronize();
 }
 
-void OptiXDevice::denoise_read_input_pixels(DenoiseContext &context, const DenoisePass &pass) const
+void OptiXDevice::denoise_read_input_pixels(DenoiseContext &context, const DenoisePass &pass)
 {
   PassAccessor::PassAccessInfo pass_access_info;
   pass_access_info.type = pass.type;
@@ -652,7 +655,8 @@ void OptiXDevice::denoise_read_input_pixels(DenoiseContext &context, const Denoi
 
   /* TODO(sergey): Consider adding support of actual exposure, to avoid clamping in extreme cases.
    */
-  const PassAccessorGPU pass_accessor(&context.queue, pass_access_info, 1.0f, context.num_samples);
+  const PassAccessorGPU pass_accessor(
+      &denoiser_.queue, pass_access_info, 1.0f, context.num_samples);
 
   PassAccessor::Destination destination(pass_access_info.type);
   destination.d_pixels = context.input_rgb.device_pointer;
@@ -691,7 +695,7 @@ bool OptiXDevice::denoise_filter_convert_to_rgb(DenoiseContext &context, const D
                   const_cast<int *>(&context.num_samples),
                   const_cast<int *>(&context.pass_sample_count)};
 
-  return context.queue.enqueue(DEVICE_KERNEL_FILTER_CONVERT_TO_RGB, work_size, args);
+  return denoiser_.queue.enqueue(DEVICE_KERNEL_FILTER_CONVERT_TO_RGB, work_size, args);
 }
 
 bool OptiXDevice::denoise_filter_convert_from_rgb(DenoiseContext &context, const DenoisePass &pass)
@@ -714,7 +718,7 @@ bool OptiXDevice::denoise_filter_convert_from_rgb(DenoiseContext &context, const
                   const_cast<int *>(&pass.denoised_offset),
                   const_cast<int *>(&context.pass_sample_count)};
 
-  return context.queue.enqueue(DEVICE_KERNEL_FILTER_CONVERT_FROM_RGB, work_size, args);
+  return denoiser_.queue.enqueue(DEVICE_KERNEL_FILTER_CONVERT_FROM_RGB, work_size, args);
 }
 
 bool OptiXDevice::denoise_ensure(const DeviceDenoiseTask &task)
@@ -807,7 +811,7 @@ bool OptiXDevice::denoise_configure_if_needed(const DeviceDenoiseTask &task)
 
   /* Initialize denoiser state for the current tile size. */
   const OptixResult result = optixDenoiserSetup(denoiser_.optix_denoiser,
-                                                0,
+                                                denoiser_.queue.stream(),
                                                 task.buffer_params.width,
                                                 task.buffer_params.height,
                                                 denoiser_.state.device_pointer,
@@ -867,7 +871,7 @@ bool OptiXDevice::denoise_run(DenoiseContext &context)
   guide_layers.normal = input_layers[2];
 
   optix_assert(optixDenoiserInvoke(denoiser_.optix_denoiser,
-                                   context.queue.stream(),
+                                   denoiser_.queue.stream(),
                                    &params,
                                    denoiser_.state.device_pointer,
                                    denoiser_.scratch_offset,
@@ -882,7 +886,7 @@ bool OptiXDevice::denoise_run(DenoiseContext &context)
   const int input_passes = denoise_buffer_num_passes(context.denoise_params);
 
   optix_assert(optixDenoiserInvoke(denoiser_.optix_denoiser,
-                                   context.queue.stream(),
+                                   denoiser_.queue.stream(),
                                    &params,
                                    denoiser_.state.device_pointer,
                                    denoiser_.scratch_offset,
@@ -1048,12 +1052,12 @@ void OptiXDevice::build_bvh(BVH *bvh, Progress &progress, bool refit)
       }
 
       device_vector<OptixAabb> aabb_data(this, "optix temp aabb data", MEM_READ_ONLY);
-#  if OPTIX_ABI_VERSION >= 36
+#  if OPTIX_ABI_VERSION >= 47
       device_vector<int> index_data(this, "optix temp index data", MEM_READ_ONLY);
       device_vector<float4> vertex_data(this, "optix temp vertex data", MEM_READ_ONLY);
       /* Four control points for each curve segment. */
       const size_t num_vertices = num_segments * 4;
-      if (DebugFlags().optix.use_curves_api && hair->curve_shape == CURVE_THICK) {
+      if (hair->curve_shape == CURVE_THICK) {
         index_data.alloc(num_segments);
         vertex_data.alloc(num_vertices * num_motion_steps);
       }
@@ -1074,13 +1078,13 @@ void OptiXDevice::build_bvh(BVH *bvh, Progress &progress, bool refit)
 
         for (size_t j = 0, i = 0; j < hair->num_curves(); ++j) {
           const Hair::Curve curve = hair->get_curve(j);
-#  if OPTIX_ABI_VERSION >= 36
+#  if OPTIX_ABI_VERSION >= 47
           const array<float> &curve_radius = hair->get_curve_radius();
 #  endif
 
           for (int segment = 0; segment < curve.num_segments(); ++segment, ++i) {
-#  if OPTIX_ABI_VERSION >= 36
-            if (DebugFlags().optix.use_curves_api && hair->curve_shape == CURVE_THICK) {
+#  if OPTIX_ABI_VERSION >= 47
+            if (hair->curve_shape == CURVE_THICK) {
               int k0 = curve.first_key + segment;
               int k1 = k0 + 1;
               int ka = max(k0 - 1, curve.first_key);
@@ -1129,14 +1133,14 @@ void OptiXDevice::build_bvh(BVH *bvh, Progress &progress, bool refit)
 
       /* Upload AABB data to GPU. */
       aabb_data.copy_to_device();
-#  if OPTIX_ABI_VERSION >= 36
+#  if OPTIX_ABI_VERSION >= 47
       index_data.copy_to_device();
       vertex_data.copy_to_device();
 #  endif
 
       vector<device_ptr> aabb_ptrs;
       aabb_ptrs.reserve(num_motion_steps);
-#  if OPTIX_ABI_VERSION >= 36
+#  if OPTIX_ABI_VERSION >= 47
       vector<device_ptr> width_ptrs;
       vector<device_ptr> vertex_ptrs;
       width_ptrs.reserve(num_motion_steps);
@@ -1144,7 +1148,7 @@ void OptiXDevice::build_bvh(BVH *bvh, Progress &progress, bool refit)
 #  endif
       for (size_t step = 0; step < num_motion_steps; ++step) {
         aabb_ptrs.push_back(aabb_data.device_pointer + step * num_segments * sizeof(OptixAabb));
-#  if OPTIX_ABI_VERSION >= 36
+#  if OPTIX_ABI_VERSION >= 47
         const device_ptr base_ptr = vertex_data.device_pointer +
                                     step * num_vertices * sizeof(float4);
         width_ptrs.push_back(base_ptr + 3 * sizeof(float)); /* Offset by vertex size. */
@@ -1155,8 +1159,8 @@ void OptiXDevice::build_bvh(BVH *bvh, Progress &progress, bool refit)
       /* Force a single any-hit call, so shadow record-all behavior works correctly. */
       unsigned int build_flags = OPTIX_GEOMETRY_FLAG_REQUIRE_SINGLE_ANYHIT_CALL;
       OptixBuildInput build_input = {};
-#  if OPTIX_ABI_VERSION >= 36
-      if (DebugFlags().optix.use_curves_api && hair->curve_shape == CURVE_THICK) {
+#  if OPTIX_ABI_VERSION >= 47
+      if (hair->curve_shape == CURVE_THICK) {
         build_input.type = OPTIX_BUILD_INPUT_TYPE_CURVES;
         build_input.curveArray.curveType = OPTIX_PRIMITIVE_TYPE_ROUND_CUBIC_BSPLINE;
         build_input.curveArray.numPrimitives = num_segments;
@@ -1358,9 +1362,8 @@ void OptiXDevice::build_bvh(BVH *bvh, Progress &progress, bool refit)
         /* Same applies to curves (so they can be skipped in local trace calls). */
         instance.visibilityMask |= 4;
 
-#  if OPTIX_ABI_VERSION >= 36
+#  if OPTIX_ABI_VERSION >= 47
         if (motion_blur && ob->get_geometry()->has_motion_blur() &&
-            DebugFlags().optix.use_curves_api &&
             static_cast<const Hair *>(ob->get_geometry())->curve_shape == CURVE_THICK) {
           /* Select between motion blur and non-motion blur built-in intersection module. */
           instance.sbtOffset = PG_HITD_MOTION - PG_HITD;

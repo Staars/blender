@@ -67,6 +67,8 @@ ccl_device_inline void path_state_init_integrator(INTEGRATOR_STATE_ARGS,
 
   INTEGRATOR_STATE_ARRAY_WRITE(volume_stack, 0, object) = OBJECT_NONE;
   INTEGRATOR_STATE_ARRAY_WRITE(volume_stack, 0, shader) = kernel_data.background.volume_shader;
+  INTEGRATOR_STATE_ARRAY_WRITE(volume_stack, 1, object) = OBJECT_NONE;
+  INTEGRATOR_STATE_ARRAY_WRITE(volume_stack, 1, shader) = SHADER_NONE;
 
 #ifdef __DENOISING_FEATURES__
   if (kernel_data.film.have_denoising_passes) {
@@ -105,7 +107,7 @@ ccl_device_inline void path_state_next(INTEGRATOR_STATE_ARGS, int label)
 
     flag |= PATH_RAY_TRANSPARENT;
     if (transparent_bounce >= kernel_data.integrator.transparent_max_bounce) {
-      flag |= PATH_RAY_TERMINATE_IMMEDIATE;
+      flag |= PATH_RAY_TERMINATE_ON_NEXT_SURFACE;
     }
 
     if (!kernel_data.integrator.transparent_shadows)
@@ -245,15 +247,10 @@ ccl_device_inline uint path_state_ray_visibility(INTEGRATOR_STATE_CONST_ARGS)
   return visibility;
 }
 
-ccl_device_inline float path_state_continuation_probability(INTEGRATOR_STATE_CONST_ARGS)
+ccl_device_inline float path_state_continuation_probability(INTEGRATOR_STATE_CONST_ARGS,
+                                                            const uint32_t path_flag)
 {
-  const uint32_t flag = INTEGRATOR_STATE(path, flag);
-
-  if (flag & PATH_RAY_TERMINATE_IMMEDIATE) {
-    /* Ray is to be terminated immediately. */
-    return 0.0f;
-  }
-  else if (flag & PATH_RAY_TRANSPARENT) {
+  if (path_flag & PATH_RAY_TRANSPARENT) {
     const uint32_t transparent_bounce = INTEGRATOR_STATE(path, transparent_bounce);
     /* Do at least specified number of bounces without RR. */
     if (transparent_bounce <= kernel_data.integrator.transparent_min_bounce) {
@@ -308,6 +305,20 @@ ccl_device_inline void path_state_rng_load(INTEGRATOR_STATE_CONST_ARGS, thread R
 {
   rng_state->rng_hash = INTEGRATOR_STATE(path, rng_hash);
   rng_state->rng_offset = INTEGRATOR_STATE(path, rng_offset);
+  rng_state->sample = INTEGRATOR_STATE(path, sample);
+}
+
+#if !defined(__KERNEL_METAL__)
+ccl_device_inline void shadow_path_state_rng_load(INTEGRATOR_STATE_CONST_ARGS, RNGState *rng_state)
+#else
+ccl_device_inline void shadow_path_state_rng_load(INTEGRATOR_STATE_CONST_ARGS, thread RNGState *rng_state)
+#endif
+{
+  const uint shadow_bounces = INTEGRATOR_STATE(shadow_path, transparent_bounce) -
+                              INTEGRATOR_STATE(path, transparent_bounce);
+
+  rng_state->rng_hash = INTEGRATOR_STATE(path, rng_hash);
+  rng_state->rng_offset = INTEGRATOR_STATE(path, rng_offset) + PRNG_BOUNCE_NUM * shadow_bounces;
   rng_state->sample = INTEGRATOR_STATE(path, sample);
 }
 

@@ -22,7 +22,6 @@
 #include "bvh/bvh_params.h"
 
 #include "device/device_denoise.h"
-#include "device/device_graphics_interop.h"
 #include "device/device_memory.h"
 
 #include "util/util_function.h"
@@ -376,20 +375,18 @@ class Device {
     return false;
   }
 
-  /* Create graphics interoperability context which will be taking care of mapping graphics
-   * resource as a buffer writable by kernels of this device. */
-  virtual unique_ptr<DeviceGraphicsInterop> graphics_interop_create()
-  {
-    LOG(FATAL) << "Request of GPU interop of a device which does not support it.";
-    return nullptr;
-  }
-
   /* Buffer denoising. */
 
   /* TODO(sergey): Need to pass real parameters needed for denoising. */
   virtual void denoise_buffer(const DeviceDenoiseTask & /*task*/)
   {
     LOG(ERROR) << "Request buffer denoising from a device which does not support it.";
+  }
+
+  virtual DeviceQueue *get_denoise_queue()
+  {
+    LOG(ERROR) << "Request denoising queue from a device which does not support it.";
+    return nullptr;
   }
 
   /* Sub-devices */

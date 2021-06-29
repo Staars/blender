@@ -19,6 +19,7 @@
 #include "device/device.h"
 #include "device/device_denoise.h"
 #include "device/device_memory.h"
+#include "device/device_queue.h"
 #include "render/buffers.h"
 #include "util/util_logging.h"
 #include "util/util_progress.h"
@@ -60,7 +61,20 @@ void DeviceDenoiser::denoise_buffer(const BufferParams &buffer_params,
 /* Check whether given device is single (not a MultiDevice) and supports requested denoiser. */
 static bool is_single_supported_device(Device *device, DenoiserType type)
 {
-  return (device->info.type != DEVICE_MULTI) && (device->info.denoisers & type);
+  if (device->info.type == DEVICE_MULTI) {
+    /* Assume multi-device is never created with a single sub-device.
+     * If one requests such configuration it should be checked on the session level. */
+    return false;
+  }
+
+  if (!device->info.multi_devices.empty()) {
+    /* Some configurations will use multi_devices, but keep the type of an individual device.
+     * This does simplify checks for homogenous setups, but here we really need a single device. */
+    return false;
+  }
+
+  /* Check the denoiser type is supported. */
+  return (device->info.denoisers & type);
 }
 
 /* Find best suitable device to perform denoiser on. Will iterate over possible sub-devices of
@@ -173,6 +187,8 @@ void DeviceDenoiser::denoise_buffer_on_device(Device *device,
     task.render_buffers = render_buffers;
   }
   else {
+    DeviceQueue *queue = device->get_denoise_queue();
+
     /* Create buffer which is available by the device used by denoiser. */
 
     /* TODO(sergey): Optimize data transfers. For example, only copy denoising related passes,
@@ -182,13 +198,16 @@ void DeviceDenoiser::denoise_buffer_on_device(Device *device,
 
     render_buffers->copy_from_device();
 
-    /* TODO(sergey): Avoid `zero_to_device()`. */
     local_render_buffers.reset(buffer_params);
 
+    /* NOTE: The local buffer is allocated for an exact size of the effective render size, while
+     * the input render buffer is allcoated for the lowest resolution divider possible. So it is
+     * important to only copy actually needed part of the input buffer. */
     memcpy(local_render_buffers.buffer.data(),
            render_buffers->buffer.data(),
-           sizeof(float) * render_buffers->buffer.size());
-    local_render_buffers.copy_to_device();
+           sizeof(float) * local_render_buffers.buffer.size());
+
+    queue->copy_to_device(local_render_buffers.buffer);
 
     task.render_buffers = &local_render_buffers;
   }
@@ -200,7 +219,7 @@ void DeviceDenoiser::denoise_buffer_on_device(Device *device,
     local_render_buffers.copy_from_device();
     memcpy(render_buffers->buffer.data(),
            local_render_buffers.buffer.data(),
-           sizeof(float) * render_buffers->buffer.size());
+           sizeof(float) * local_render_buffers.buffer.size());
     render_buffers->copy_to_device();
   }
 }

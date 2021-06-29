@@ -114,15 +114,6 @@ ccl_device_inline bool light_sample_terminate(METAL_ASQ_DEVICE const KernelGloba
                                               METAL_ASQ_THREAD BsdfEval *eval,
                                               const float rand_terminate)
 {
-  /* TODO: move in volume phase evaluation. */
-#if 0
-#  ifdef __PASSES__
-  /* use visibility flag to skip lights */
-    if (ls->shader & SHADER_EXCLUDE_SCATTER)
-      eval->volume = zero_float3();
-#  endif
-#endif
-
   if (bsdf_eval_is_zero(eval)) {
     return true;
   }
@@ -142,14 +133,20 @@ ccl_device_inline bool light_sample_terminate(METAL_ASQ_DEVICE const KernelGloba
 }
 
 /* Create shadow ray towards light sample. */
+template<bool is_volume = false>
 ccl_device_inline void light_sample_to_shadow_ray(METAL_ASQ_DEVICE const ShaderData *sd,
                                                   METAL_ASQ_THREAD const LightSample *ls,
                                                   METAL_ASQ_THREAD Ray *ray)
 {
   if (ls->shader & SHADER_CAST_SHADOW) {
     /* setup ray */
-    bool transmit = (dot(sd->Ng, ls->D) < 0.0f);
-    ray->P = ray_offset(sd->P, (transmit) ? -sd->Ng : sd->Ng);
+    if (is_volume) {
+      ray->P = sd->P;
+    }
+    else {
+      bool transmit = (dot(sd->Ng, ls->D) < 0.0f);
+      ray->P = ray_offset(sd->P, (transmit) ? -sd->Ng : sd->Ng);
+    }
 
     if (ls->t == FLT_MAX) {
       /* distant light */
@@ -172,19 +169,5 @@ ccl_device_inline void light_sample_to_shadow_ray(METAL_ASQ_DEVICE const ShaderD
 
   ray->time = sd->time;
 }
-
-/* Volume phase evaluation code - to be moved into volume code. */
-#if 0
-#  ifdef __VOLUME__
-    float bsdf_pdf;
-    shader_volume_phase_eval(kg, sd, ls->D, eval, &bsdf_pdf);
-    if (ls->shader & SHADER_USE_MIS) {
-      /* Multiple importance sampling. */
-      float mis_weight = power_heuristic(ls->pdf, bsdf_pdf);
-      light_eval *= mis_weight;
-    }
-  }
-#  endif
-#endif
 
 CCL_NAMESPACE_END
