@@ -14,12 +14,20 @@
  * limitations under the License.
  */
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
 CCL_NAMESPACE_BEGIN
 
 /* Conversion Nodes */
 
 ccl_device void svm_node_convert(
-    const KernelGlobals *kg, ShaderData *sd, float *stack, uint type, uint from, uint to)
+                                 METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint type, uint from, uint to)
 {
   switch (type) {
     case NODE_CONVERT_FI: {

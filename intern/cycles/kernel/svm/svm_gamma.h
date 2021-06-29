@@ -14,10 +14,17 @@
  * limitations under the License.
  */
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
 CCL_NAMESPACE_BEGIN
 
 ccl_device void svm_node_gamma(
-    ShaderData *sd, float *stack, uint in_gamma, uint in_color, uint out_color)
+                               METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint in_gamma, uint in_color, uint out_color)
 {
   float3 color = stack_load_float3(stack, in_color);
   float gamma = stack_load_float(stack, in_gamma);

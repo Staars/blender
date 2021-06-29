@@ -13,16 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 
 CCL_NAMESPACE_BEGIN
 
-ccl_device void svm_node_normal(const KernelGlobals *kg,
-                                ShaderData *sd,
-                                float *stack,
+ccl_device void svm_node_normal(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                METAL_ASQ_DEVICE ShaderData *sd,
+                                METAL_ASQ_THREAD float *stack,
                                 uint in_normal_offset,
                                 uint out_normal_offset,
                                 uint out_dot_offset,
-                                int *offset)
+                                METAL_ASQ_THREAD int *offset)
 {
   /* read extra data */
   uint4 node1 = read_node(kg, offset);

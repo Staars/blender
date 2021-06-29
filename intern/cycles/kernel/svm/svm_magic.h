@@ -14,6 +14,14 @@
  * limitations under the License.
  */
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
 CCL_NAMESPACE_BEGIN
 
 /* Magic */
@@ -88,7 +96,7 @@ ccl_device_noinline_cpu float3 svm_magic(float3 p, int n, float distortion)
 }
 
 ccl_device void svm_node_tex_magic(
-    const KernelGlobals *kg, ShaderData *sd, float *stack, uint4 node, int *offset)
+                                   METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint4 node, METAL_ASQ_THREAD int *offset)
 {
   uint depth;
   uint scale_offset, distortion_offset, co_offset, fac_offset, color_offset;

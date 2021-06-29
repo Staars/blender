@@ -13,13 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
 
 CCL_NAMESPACE_BEGIN
 
 /* IES Light */
 
 ccl_device_inline float interpolate_ies_vertical(
-    const KernelGlobals *kg, int ofs, int v, int v_num, float v_frac, int h)
+                                                 METAL_ASQ_DEVICE const KernelGlobals *kg, int ofs, int v, int v_num, float v_frac, int h)
 {
   /* Since lookups are performed in spherical coordinates, clamping the coordinates at the low end
    * of v (corresponding to the north pole) would result in artifacts. The proper way of dealing
@@ -39,7 +47,7 @@ ccl_device_inline float interpolate_ies_vertical(
   return cubic_interp(a, b, c, d, v_frac);
 }
 
-ccl_device_inline float kernel_ies_interp(const KernelGlobals *kg,
+ccl_device_inline float kernel_ies_interp(METAL_ASQ_DEVICE const KernelGlobals *kg,
                                           int slot,
                                           float h_angle,
                                           float v_angle)
@@ -99,7 +107,7 @@ ccl_device_inline float kernel_ies_interp(const KernelGlobals *kg,
 }
 
 ccl_device void svm_node_ies(
-    const KernelGlobals *kg, ShaderData *sd, float *stack, uint4 node, int *offset)
+                             METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint4 node, METAL_ASQ_THREAD int *offset)
 {
   uint vector_offset, strength_offset, fac_offset, slot = node.z;
   svm_unpack_node_uchar3(node.y, &strength_offset, &vector_offset, &fac_offset);

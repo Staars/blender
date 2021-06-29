@@ -14,6 +14,15 @@
  * limitations under the License.
  */
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 CCL_NAMESPACE_BEGIN
 
 /* Gradient */
@@ -60,7 +69,7 @@ ccl_device float svm_gradient(float3 p, NodeGradientType type)
   return 0.0f;
 }
 
-ccl_device void svm_node_tex_gradient(ShaderData *sd, float *stack, uint4 node)
+ccl_device void svm_node_tex_gradient(METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint4 node)
 {
   uint type, co_offset, color_offset, fac_offset;
 

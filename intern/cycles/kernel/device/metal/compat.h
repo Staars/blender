@@ -68,8 +68,8 @@
 #define ccl_device_noinline 
 #define ccl_device_noinline_cpu ccl_device
 #define ccl_global device
-#define ccl_static_constant __constant__
-#define ccl_device_constant __constant__ __device__
+#define ccl_static_constant const
+#define ccl_device_constant device const
 #define ccl_constant
 #define ccl_local
 #define ccl_local_param

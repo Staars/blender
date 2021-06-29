@@ -14,6 +14,14 @@
  * limitations under the License.
  */
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
 CCL_NAMESPACE_BEGIN
 
 /* Sky texture */
@@ -28,7 +36,7 @@ ccl_device float sky_angle_between(float thetav, float phiv, float theta, float 
  * "A Practical Analytic Model for Daylight"
  * A. J. Preetham, Peter Shirley, Brian Smits
  */
-ccl_device float sky_perez_function(float *lam, float theta, float gamma)
+ccl_device float sky_perez_function(METAL_ASQ_THREAD float *lam, float theta, float gamma)
 {
   float ctheta = cosf(theta);
   float cgamma = cosf(gamma);
@@ -37,16 +45,16 @@ ccl_device float sky_perez_function(float *lam, float theta, float gamma)
          (1.0f + lam[2] * expf(lam[3] * gamma) + lam[4] * cgamma * cgamma);
 }
 
-ccl_device float3 sky_radiance_preetham(const KernelGlobals *kg,
+ccl_device float3 sky_radiance_preetham(METAL_ASQ_DEVICE const KernelGlobals *kg,
                                         float3 dir,
                                         float sunphi,
                                         float suntheta,
                                         float radiance_x,
                                         float radiance_y,
                                         float radiance_z,
-                                        float *config_x,
-                                        float *config_y,
-                                        float *config_z)
+                                        METAL_ASQ_THREAD float *config_x,
+                                        METAL_ASQ_THREAD float *config_y,
+                                        METAL_ASQ_THREAD float *config_z)
 {
   /* convert vector to spherical coordinates */
   float2 spherical = direction_to_spherical(dir);
@@ -73,7 +81,7 @@ ccl_device float3 sky_radiance_preetham(const KernelGlobals *kg,
  * "An Analytic Model for Full Spectral Sky-Dome Radiance"
  * Lukas Hosek, Alexander Wilkie
  */
-ccl_device float sky_radiance_internal(float *configuration, float theta, float gamma)
+ccl_device float sky_radiance_internal(METAL_ASQ_THREAD float *configuration, float theta, float gamma)
 {
   float ctheta = cosf(theta);
   float cgamma = cosf(gamma);
@@ -90,16 +98,16 @@ ccl_device float sky_radiance_internal(float *configuration, float theta, float 
           configuration[6] * mieM + configuration[7] * zenith);
 }
 
-ccl_device float3 sky_radiance_hosek(const KernelGlobals *kg,
+ccl_device float3 sky_radiance_hosek(METAL_ASQ_DEVICE const KernelGlobals *kg,
                                      float3 dir,
                                      float sunphi,
                                      float suntheta,
                                      float radiance_x,
                                      float radiance_y,
                                      float radiance_z,
-                                     float *config_x,
-                                     float *config_y,
-                                     float *config_z)
+                                     METAL_ASQ_THREAD float *config_x,
+                                     METAL_ASQ_THREAD float *config_y,
+                                     METAL_ASQ_THREAD float *config_z)
 {
   /* convert vector to spherical coordinates */
   float2 spherical = direction_to_spherical(dir);
@@ -127,9 +135,9 @@ ccl_device float3 geographical_to_direction(float lat, float lon)
   return make_float3(cos(lat) * cos(lon), cos(lat) * sin(lon), sin(lat));
 }
 
-ccl_device float3 sky_radiance_nishita(const KernelGlobals *kg,
+ccl_device float3 sky_radiance_nishita(METAL_ASQ_DEVICE const KernelGlobals *kg,
                                        float3 dir,
-                                       float *nishita_data,
+                                       METAL_ASQ_THREAD float *nishita_data,
                                        uint texture_id)
 {
   /* definitions */
@@ -210,7 +218,7 @@ ccl_device float3 sky_radiance_nishita(const KernelGlobals *kg,
 }
 
 ccl_device void svm_node_tex_sky(
-    const KernelGlobals *kg, ShaderData *sd, float *stack, uint4 node, int *offset)
+                                 METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint4 node, METAL_ASQ_THREAD int *offset)
 {
   /* Load data */
   uint dir_offset = node.y;

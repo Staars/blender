@@ -16,6 +16,15 @@
 
 #pragma once
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 #include "kernel/kernel_light.h"
 #include "kernel/kernel_montecarlo.h"
 #include "kernel/kernel_path_state.h"
@@ -25,8 +34,8 @@ CCL_NAMESPACE_BEGIN
 
 /* Evaluate shader on light. */
 ccl_device_noinline_cpu float3 light_sample_shader_eval(INTEGRATOR_STATE_ARGS,
-                                                        ShaderData *emission_sd,
-                                                        LightSample *ls,
+                                                        METAL_ASQ_THREAD ShaderData *emission_sd,
+                                                        METAL_ASQ_THREAD LightSample *ls,
                                                         float time)
 {
   /* setup shading at emitter */
@@ -93,16 +102,16 @@ ccl_device_noinline_cpu float3 light_sample_shader_eval(INTEGRATOR_STATE_ARGS,
 }
 
 /* Test if light sample is from a light or emission from geometry. */
-ccl_device_inline bool light_sample_is_light(const LightSample *ls)
+ccl_device_inline bool light_sample_is_light(METAL_ASQ_THREAD const LightSample *ls)
 {
   /* return if it's a lamp for shadow pass */
   return (ls->prim == PRIM_NONE && ls->type != LIGHT_BACKGROUND);
 }
 
 /* Early path termination of shadow rays. */
-ccl_device_inline bool light_sample_terminate(const KernelGlobals *ccl_restrict kg,
-                                              const LightSample *ls,
-                                              BsdfEval *eval,
+ccl_device_inline bool light_sample_terminate(METAL_ASQ_DEVICE const KernelGlobals *ccl_restrict kg,
+                                              METAL_ASQ_THREAD const LightSample *ls,
+                                              METAL_ASQ_THREAD BsdfEval *eval,
                                               const float rand_terminate)
 {
   /* TODO: move in volume phase evaluation. */
@@ -133,9 +142,9 @@ ccl_device_inline bool light_sample_terminate(const KernelGlobals *ccl_restrict 
 }
 
 /* Create shadow ray towards light sample. */
-ccl_device_inline void light_sample_to_shadow_ray(const ShaderData *sd,
-                                                  const LightSample *ls,
-                                                  Ray *ray)
+ccl_device_inline void light_sample_to_shadow_ray(METAL_ASQ_DEVICE const ShaderData *sd,
+                                                  METAL_ASQ_THREAD const LightSample *ls,
+                                                  METAL_ASQ_THREAD Ray *ray)
 {
   if (ls->shader & SHADER_CAST_SHADOW) {
     /* setup ray */

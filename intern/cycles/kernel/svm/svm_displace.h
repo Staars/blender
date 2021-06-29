@@ -14,15 +14,24 @@
  * limitations under the License.
  */
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 #include "kernel/kernel_montecarlo.h"
 
 CCL_NAMESPACE_BEGIN
 
 /* Bump Node */
 
-ccl_device void svm_node_set_bump(const KernelGlobals *kg,
-                                  ShaderData *sd,
-                                  float *stack,
+ccl_device void svm_node_set_bump(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                  METAL_ASQ_DEVICE ShaderData *sd,
+                                  METAL_ASQ_THREAD float *stack,
                                   uint4 node)
 {
 #ifdef __RAY_DIFFERENTIALS__
@@ -88,18 +97,18 @@ ccl_device void svm_node_set_bump(const KernelGlobals *kg,
 
 /* Displacement Node */
 
-ccl_device void svm_node_set_displacement(const KernelGlobals *kg,
-                                          ShaderData *sd,
-                                          float *stack,
+ccl_device void svm_node_set_displacement(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                          METAL_ASQ_DEVICE ShaderData *sd,
+                                          METAL_ASQ_THREAD float *stack,
                                           uint fac_offset)
 {
   float3 dP = stack_load_float3(stack, fac_offset);
   sd->P += dP;
 }
 
-ccl_device void svm_node_displacement(const KernelGlobals *kg,
-                                      ShaderData *sd,
-                                      float *stack,
+ccl_device void svm_node_displacement(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                      METAL_ASQ_DEVICE ShaderData *sd,
+                                      METAL_ASQ_THREAD float *stack,
                                       uint4 node)
 {
   uint height_offset, midlevel_offset, scale_offset, normal_offset;
@@ -128,7 +137,7 @@ ccl_device void svm_node_displacement(const KernelGlobals *kg,
 }
 
 ccl_device_forceinline void svm_node_vector_displacement(
-    const KernelGlobals *kg, ShaderData *sd, float *stack, uint4 node, int *offset)
+                                                         METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint4 node, METAL_ASQ_THREAD int *offset)
 {
   uint4 data_node = read_node(kg, offset);
   uint space = data_node.x;

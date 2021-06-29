@@ -337,7 +337,7 @@ ccl_device void bssrdf_none_sample(const float radius, float xi, METAL_ASQ_THREA
 
 /* Generic */
 
-ccl_device_inline Bssrdf *bssrdf_alloc(METAL_ASQ_DEVICE ShaderData *sd, float3 weight)
+ccl_device_inline METAL_ASQ_THREAD Bssrdf *bssrdf_alloc(METAL_ASQ_DEVICE ShaderData *sd, float3 weight)
 {
   Bssrdf *bssrdf = (Bssrdf *)closure_alloc(sd, sizeof(Bssrdf), CLOSURE_NONE_ID, weight);
 
@@ -430,7 +430,7 @@ ccl_device int bssrdf_setup(METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD Bs
   return flag;
 }
 
-ccl_device void bssrdf_sample(METAL_ASQ_THREAD const ShaderClosure *sc, float xi, float *r, float *h)
+ccl_device void bssrdf_sample(METAL_ASQ_THREAD const ShaderClosure *sc, float xi, METAL_ASQ_THREAD float *r, METAL_ASQ_THREAD float *h)
 {
   const Bssrdf *bssrdf = (const Bssrdf *)sc;
   float radius;

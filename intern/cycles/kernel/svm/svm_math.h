@@ -14,15 +14,23 @@
  * limitations under the License.
  */
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
 CCL_NAMESPACE_BEGIN
 
-ccl_device void svm_node_math(const KernelGlobals *kg,
-                              ShaderData *sd,
-                              float *stack,
+ccl_device void svm_node_math(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                              METAL_ASQ_DEVICE ShaderData *sd,
+                              METAL_ASQ_THREAD float *stack,
                               uint type,
                               uint inputs_stack_offsets,
                               uint result_stack_offset,
-                              int *offset)
+                              METAL_ASQ_THREAD int *offset)
 {
   uint a_stack_offset, b_stack_offset, c_stack_offset;
   svm_unpack_node_uchar3(inputs_stack_offsets, &a_stack_offset, &b_stack_offset, &c_stack_offset);
@@ -35,13 +43,13 @@ ccl_device void svm_node_math(const KernelGlobals *kg,
   stack_store_float(stack, result_stack_offset, result);
 }
 
-ccl_device void svm_node_vector_math(const KernelGlobals *kg,
-                                     ShaderData *sd,
-                                     float *stack,
+ccl_device void svm_node_vector_math(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                     METAL_ASQ_DEVICE ShaderData *sd,
+                                     METAL_ASQ_THREAD float *stack,
                                      uint type,
                                      uint inputs_stack_offsets,
                                      uint outputs_stack_offsets,
-                                     int *offset)
+                                     METAL_ASQ_THREAD int *offset)
 {
   uint value_stack_offset, vector_stack_offset;
   uint a_stack_offset, b_stack_offset, param1_stack_offset;

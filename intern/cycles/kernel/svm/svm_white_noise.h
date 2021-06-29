@@ -14,15 +14,24 @@
  * limitations under the License.
  */
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 CCL_NAMESPACE_BEGIN
 
-ccl_device void svm_node_tex_white_noise(const KernelGlobals *kg,
-                                         ShaderData *sd,
-                                         float *stack,
+ccl_device void svm_node_tex_white_noise(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                         METAL_ASQ_DEVICE ShaderData *sd,
+                                         METAL_ASQ_THREAD float *stack,
                                          uint dimensions,
                                          uint inputs_stack_offsets,
                                          uint ouptuts_stack_offsets,
-                                         int *offset)
+                                         METAL_ASQ_THREAD int *offset)
 {
   uint vector_stack_offset, w_stack_offset, value_stack_offset, color_stack_offset;
   svm_unpack_node_uchar2(inputs_stack_offsets, &vector_stack_offset, &w_stack_offset);

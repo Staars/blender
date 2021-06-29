@@ -17,10 +17,18 @@
 #ifndef __SVM_HSV_H__
 #define __SVM_HSV_H__
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
 CCL_NAMESPACE_BEGIN
 
 ccl_device void svm_node_hsv(
-    const KernelGlobals *kg, ShaderData *sd, float *stack, uint4 node, int *offset)
+                             METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint4 node, METAL_ASQ_THREAD int *offset)
 {
   uint in_color_offset, fac_offset, out_color_offset;
   uint hue_offset, sat_offset, val_offset;

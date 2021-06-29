@@ -14,11 +14,20 @@
  * limitations under the License.
  */
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 CCL_NAMESPACE_BEGIN
 
-ccl_device void svm_node_camera(const KernelGlobals *kg,
-                                ShaderData *sd,
-                                float *stack,
+ccl_device void svm_node_camera(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                METAL_ASQ_DEVICE ShaderData *sd,
+                                METAL_ASQ_THREAD float *stack,
                                 uint out_vector,
                                 uint out_zdepth,
                                 uint out_distance)

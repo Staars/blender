@@ -14,13 +14,21 @@
  * limitations under the License.
  */
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
 CCL_NAMESPACE_BEGIN
 
 /* Bump Eval Nodes */
 
-ccl_device void svm_node_enter_bump_eval(const KernelGlobals *kg,
-                                         ShaderData *sd,
-                                         float *stack,
+ccl_device void svm_node_enter_bump_eval(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                         METAL_ASQ_DEVICE ShaderData *sd,
+                                         METAL_ASQ_THREAD float *stack,
                                          uint offset)
 {
   /* save state */
@@ -45,9 +53,9 @@ ccl_device void svm_node_enter_bump_eval(const KernelGlobals *kg,
   }
 }
 
-ccl_device void svm_node_leave_bump_eval(const KernelGlobals *kg,
-                                         ShaderData *sd,
-                                         float *stack,
+ccl_device void svm_node_leave_bump_eval(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                         METAL_ASQ_DEVICE ShaderData *sd,
+                                         METAL_ASQ_THREAD float *stack,
                                          uint offset)
 {
   /* restore state */

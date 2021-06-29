@@ -14,6 +14,15 @@
  * limitations under the License.
  */
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 #include "kernel/bvh/bvh.h"
 #include "kernel/kernel_montecarlo.h"
 #include "kernel/kernel_random.h"
@@ -29,7 +38,7 @@ CCL_NAMESPACE_BEGIN
  */
 
 ccl_device float3 svm_bevel(INTEGRATOR_STATE_CONST_ARGS,
-                            ShaderData *sd,
+                            METAL_ASQ_DEVICE ShaderData *sd,
                             float radius,
                             int num_samples)
 {
@@ -210,8 +219,8 @@ ccl_device float3 svm_bevel(INTEGRATOR_STATE_CONST_ARGS,
 }
 
 ccl_device void svm_node_bevel(INTEGRATOR_STATE_CONST_ARGS,
-                               ShaderData *sd,
-                               float *stack,
+                               METAL_ASQ_DEVICE ShaderData *sd,
+                               METAL_ASQ_THREAD float *stack,
                                uint4 node)
 {
 #  if defined(__KERNEL_OPTIX__)
@@ -219,8 +228,8 @@ ccl_device void svm_node_bevel(INTEGRATOR_STATE_CONST_ARGS,
 }
 
 extern "C" __device__ void __direct_callable__svm_node_bevel(INTEGRATOR_STATE_CONST_ARGS,
-                                                             ShaderData *sd,
-                                                             float *stack,
+                                                             METAL_ASQ_DEVICE ShaderData *sd,
+                                                             METAL_ASQ_THREAD float *stack,
                                                              uint4 node)
 {
 #  endif

@@ -14,13 +14,21 @@
  * limitations under the License.
  */
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
 CCL_NAMESPACE_BEGIN
 
 /* Vector Transform */
 
-ccl_device void svm_node_vector_transform(const KernelGlobals *kg,
-                                          ShaderData *sd,
-                                          float *stack,
+ccl_device void svm_node_vector_transform(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                          METAL_ASQ_DEVICE  ShaderData *sd,
+                                          METAL_ASQ_THREAD float *stack,
                                           uint4 node)
 {
   uint itype, ifrom, ito;

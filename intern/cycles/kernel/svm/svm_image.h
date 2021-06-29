@@ -14,9 +14,18 @@
  * limitations under the License.
  */
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 CCL_NAMESPACE_BEGIN
 
-ccl_device float4 svm_image_texture(const KernelGlobals *kg, int id, float x, float y, uint flags)
+ccl_device float4 svm_image_texture(METAL_ASQ_DEVICE const KernelGlobals *kg, int id, float x, float y, uint flags)
 {
   if (id == -1) {
     return make_float4(
@@ -45,7 +54,7 @@ ccl_device_inline float3 texco_remap_square(float3 co)
 }
 
 ccl_device void svm_node_tex_image(
-    const KernelGlobals *kg, ShaderData *sd, float *stack, uint4 node, int *offset)
+                                   METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint4 node, METAL_ASQ_THREAD int *offset)
 {
   uint co_offset, out_offset, alpha_offset, flags;
 
@@ -116,9 +125,9 @@ ccl_device void svm_node_tex_image(
     stack_store_float(stack, alpha_offset, f.w);
 }
 
-ccl_device_forceinline void svm_node_tex_image_box(const KernelGlobals *kg,
-                                                   ShaderData *sd,
-                                                   float *stack,
+ccl_device_forceinline void svm_node_tex_image_box(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                                   METAL_ASQ_DEVICE ShaderData *sd,
+                                                   METAL_ASQ_THREAD float *stack,
                                                    uint4 node)
 {
   /* get object space normal */
@@ -218,9 +227,9 @@ ccl_device_forceinline void svm_node_tex_image_box(const KernelGlobals *kg,
     stack_store_float(stack, alpha_offset, f.w);
 }
 
-ccl_device void svm_node_tex_environment(const KernelGlobals *kg,
-                                         ShaderData *sd,
-                                         float *stack,
+ccl_device void svm_node_tex_environment(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                         METAL_ASQ_DEVICE ShaderData *sd,
+                                         METAL_ASQ_THREAD float *stack,
                                          uint4 node)
 {
   uint id = node.y;

@@ -16,11 +16,20 @@
 
 CCL_NAMESPACE_BEGIN
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 /* Light Path Node */
 
 ccl_device void svm_node_light_path(INTEGRATOR_STATE_CONST_ARGS,
-                                    const ShaderData *sd,
-                                    float *stack,
+                                    METAL_ASQ_DEVICE const ShaderData *sd,
+                                    METAL_ASQ_THREAD float *stack,
                                     uint type,
                                     uint out_offset,
                                     int path_flag)
@@ -107,7 +116,7 @@ ccl_device void svm_node_light_path(INTEGRATOR_STATE_CONST_ARGS,
 
 /* Light Falloff Node */
 
-ccl_device void svm_node_light_falloff(ShaderData *sd, float *stack, uint4 node)
+ccl_device void svm_node_light_falloff(METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint4 node)
 {
   uint strength_offset, out_offset, smooth_offset;
 

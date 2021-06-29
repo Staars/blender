@@ -25,6 +25,15 @@
 
 #pragma once
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 // clang-format off
 #include "kernel/closure/alloc.h"
 #include "kernel/closure/bsdf_util.h"
@@ -46,8 +55,8 @@ CCL_NAMESPACE_BEGIN
 /* ShaderData setup from incoming ray */
 
 #ifdef __OBJECT_MOTION__
-ccl_device void shader_setup_object_transforms(const KernelGlobals *ccl_restrict kg,
-                                               ShaderData *ccl_restrict sd,
+ccl_device void shader_setup_object_transforms(METAL_ASQ_DEVICE const KernelGlobals *ccl_restrict kg,
+                                               METAL_ASQ_DEVICE ShaderData *ccl_restrict sd,
                                                float time)
 {
   if (sd->object_flag & SD_OBJECT_MOTION) {
@@ -59,10 +68,10 @@ ccl_device void shader_setup_object_transforms(const KernelGlobals *ccl_restrict
 
 /* TODO: break this up if it helps reduce register pressure to load data from
  * global memory as we write it to shaderdata. */
-ccl_device_inline void shader_setup_from_ray(const KernelGlobals *ccl_restrict kg,
-                                             ShaderData *ccl_restrict sd,
-                                             const Ray *ccl_restrict ray,
-                                             const Intersection *ccl_restrict isect)
+ccl_device_inline void shader_setup_from_ray(METAL_ASQ_DEVICE const KernelGlobals *ccl_restrict kg,
+                                             METAL_ASQ_DEVICE ShaderData *ccl_restrict sd,
+                                             METAL_ASQ_THREAD const Ray *ccl_restrict ray,
+                                             METAL_ASQ_THREAD const Intersection *ccl_restrict isect)
 {
   PROFILING_INIT(kg, PROFILING_SHADER_SETUP);
 
@@ -169,10 +178,10 @@ ccl_device
 ccl_device_inline
 #    endif
     void
-    shader_setup_from_subsurface(const KernelGlobals *kg,
-                                 ShaderData *sd,
-                                 const Intersection *isect,
-                                 const Ray *ray)
+    shader_setup_from_subsurface(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                 METAL_ASQ_DEVICE ShaderData *sd,
+                                 METAL_ASQ_THREAD const Intersection *isect,
+                                 METAL_ASQ_THREAD const Ray *ray)
 {
   PROFILING_INIT(kg, PROFILING_SHADER_SETUP);
 
@@ -250,8 +259,8 @@ ccl_device_inline
 
 /* ShaderData setup from position sampled on mesh */
 
-ccl_device_inline void shader_setup_from_sample(const KernelGlobals *ccl_restrict kg,
-                                                ShaderData *ccl_restrict sd,
+ccl_device_inline void shader_setup_from_sample(METAL_ASQ_DEVICE const KernelGlobals *ccl_restrict kg,
+                                                METAL_ASQ_DEVICE ShaderData *ccl_restrict sd,
                                                 const float3 P,
                                                 const float3 Ng,
                                                 const float3 I,
@@ -367,8 +376,8 @@ ccl_device_inline void shader_setup_from_sample(const KernelGlobals *ccl_restric
 
 /* ShaderData setup for displacement */
 
-ccl_device void shader_setup_from_displace(const KernelGlobals *ccl_restrict kg,
-                                           ShaderData *ccl_restrict sd,
+ccl_device void shader_setup_from_displace(METAL_ASQ_DEVICE const KernelGlobals *ccl_restrict kg,
+                                           METAL_ASQ_DEVICE ShaderData *ccl_restrict sd,
                                            int object,
                                            int prim,
                                            float u,
@@ -401,8 +410,8 @@ ccl_device void shader_setup_from_displace(const KernelGlobals *ccl_restrict kg,
 
 /* ShaderData setup from ray into background */
 
-ccl_device_inline void shader_setup_from_background(const KernelGlobals *ccl_restrict kg,
-                                                    ShaderData *ccl_restrict sd,
+ccl_device_inline void shader_setup_from_background(METAL_ASQ_DEVICE const KernelGlobals *ccl_restrict kg,
+                                                    METAL_ASQ_DEVICE ShaderData *ccl_restrict sd,
                                                     const float3 ray_P,
                                                     const float3 ray_D,
                                                     const float ray_time)
@@ -450,9 +459,9 @@ ccl_device_inline void shader_setup_from_background(const KernelGlobals *ccl_res
 /* ShaderData setup from point inside volume */
 
 #ifdef __VOLUME__
-ccl_device_inline void shader_setup_from_volume(const KernelGlobals *ccl_restrict kg,
-                                                ShaderData *ccl_restrict sd,
-                                                const Ray *ccl_restrict ray)
+ccl_device_inline void shader_setup_from_volume(METAL_ASQ_DEVICE const KernelGlobals *ccl_restrict kg,
+                                                METAL_ASQ_DEVICE ShaderData *ccl_restrict sd,
+                                                METAL_ASQ_THREAD const Ray *ccl_restrict ray)
 {
   PROFILING_INIT(kg, PROFILING_SHADER_SETUP);
 
@@ -501,7 +510,7 @@ ccl_device_inline void shader_setup_from_volume(const KernelGlobals *ccl_restric
 /* Merging */
 
 #if defined(__VOLUME__)
-ccl_device_inline void shader_merge_closures(ShaderData *sd)
+ccl_device_inline void shader_merge_closures(METAL_ASQ_DEVICE ShaderData *sd)
 {
   /* merge identical closures, better when we sample a single closure at a time */
   for (int i = 0; i < sd->num_closure; i++) {
@@ -533,7 +542,7 @@ ccl_device_inline void shader_merge_closures(ShaderData *sd)
 }
 #endif /* __VOLUME__ */
 
-ccl_device_inline void shader_prepare_closures(INTEGRATOR_STATE_CONST_ARGS, ShaderData *sd)
+ccl_device_inline void shader_prepare_closures(INTEGRATOR_STATE_CONST_ARGS, METAL_ASQ_DEVICE ShaderData *sd)
 {
   /* Defensive sampling.
    *
@@ -581,7 +590,7 @@ ccl_device_inline void shader_prepare_closures(INTEGRATOR_STATE_CONST_ARGS, Shad
 
 /* BSDF */
 
-ccl_device_inline bool shader_bsdf_is_transmission(const ShaderData *sd, const float3 omega_in)
+ccl_device_inline bool shader_bsdf_is_transmission(METAL_ASQ_DEVICE const ShaderData *sd, const float3 omega_in)
 {
   /* For curves use the smooth normal, particularly for ribbons the geometric
    * normal gives too much darkening otherwise. */
@@ -613,13 +622,13 @@ ccl_device_forceinline bool _shader_bsdf_exclude(ClosureType type, uint light_sh
   return false;
 }
 
-ccl_device_inline void _shader_bsdf_multi_eval(const KernelGlobals *kg,
-                                               ShaderData *sd,
+ccl_device_inline void _shader_bsdf_multi_eval(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                               METAL_ASQ_DEVICE ShaderData *sd,
                                                const float3 omega_in,
                                                const bool is_transmission,
-                                               float *pdf,
-                                               const ShaderClosure *skip_sc,
-                                               BsdfEval *result_eval,
+                                               METAL_ASQ_THREAD float *pdf,
+                                               METAL_ASQ_THREAD const ShaderClosure *skip_sc,
+                                               METAL_ASQ_THREAD BsdfEval *result_eval,
                                                float sum_pdf,
                                                float sum_sample_weight,
                                                const uint light_shader_flags)
@@ -659,11 +668,11 @@ ccl_device
 ccl_device_inline
 #endif
     void
-    shader_bsdf_eval(const KernelGlobals *kg,
-                     ShaderData *sd,
+    shader_bsdf_eval(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                     METAL_ASQ_DEVICE ShaderData *sd,
                      const float3 omega_in,
                      const bool is_transmission,
-                     BsdfEval *eval,
+                     METAL_ASQ_THREAD BsdfEval *eval,
                      const float light_pdf,
                      const uint light_shader_flags)
 {
@@ -681,8 +690,8 @@ ccl_device_inline
 }
 
 /* Randomly sample a BSSRDF or BSDF proportional to ShaderClosure.sample_weight. */
-ccl_device_inline const ShaderClosure *shader_bsdf_bssrdf_pick(const ShaderData *ccl_restrict sd,
-                                                               float *randu)
+METAL_ASQ_THREAD ccl_device_inline const ShaderClosure *shader_bsdf_bssrdf_pick(METAL_ASQ_DEVICE const ShaderData *ccl_restrict sd,
+                                                               METAL_ASQ_THREAD float *randu)
 {
   int sampled = 0;
 
@@ -724,8 +733,8 @@ ccl_device_inline const ShaderClosure *shader_bsdf_bssrdf_pick(const ShaderData 
 }
 
 /* Return weight for picked BSSRDF. */
-ccl_device_inline float3 shader_bssrdf_sample_weight(const ShaderData *ccl_restrict sd,
-                                                     const ShaderClosure *ccl_restrict bssrdf_sc)
+ccl_device_inline float3 shader_bssrdf_sample_weight(METAL_ASQ_DEVICE const ShaderData *ccl_restrict sd,
+                                                     METAL_ASQ_THREAD const ShaderClosure *ccl_restrict bssrdf_sc)
 {
   float3 weight = bssrdf_sc->weight;
 
@@ -746,15 +755,15 @@ ccl_device_inline float3 shader_bssrdf_sample_weight(const ShaderData *ccl_restr
 
 /* Sample direction for picked BSDF, and return evaluation and pdf for all
  * BSDFs combined using MIS. */
-ccl_device int shader_bsdf_sample_closure(const KernelGlobals *kg,
-                                          ShaderData *sd,
-                                          const ShaderClosure *sc,
+ccl_device int shader_bsdf_sample_closure(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                          METAL_ASQ_DEVICE ShaderData *sd,
+                                          METAL_ASQ_THREAD const ShaderClosure *sc,
                                           float randu,
                                           float randv,
-                                          BsdfEval *bsdf_eval,
-                                          float3 *omega_in,
-                                          differential3 *domega_in,
-                                          float *pdf)
+                                          METAL_ASQ_THREAD BsdfEval *bsdf_eval,
+                                          METAL_ASQ_THREAD float3 *omega_in,
+                                          METAL_ASQ_THREAD differential3 *domega_in,
+                                          METAL_ASQ_THREAD float *pdf)
 {
   PROFILING_INIT(kg, PROFILING_CLOSURE_SAMPLE);
 
@@ -783,7 +792,7 @@ ccl_device int shader_bsdf_sample_closure(const KernelGlobals *kg,
   return label;
 }
 
-ccl_device float shader_bsdf_average_roughness(const ShaderData *sd)
+ccl_device float shader_bsdf_average_roughness(METAL_ASQ_DEVICE const ShaderData *sd)
 {
   float roughness = 0.0f;
   float sum_weight = 0.0f;
@@ -803,7 +812,7 @@ ccl_device float shader_bsdf_average_roughness(const ShaderData *sd)
   return (sum_weight > 0.0f) ? roughness / sum_weight : 0.0f;
 }
 
-ccl_device float3 shader_bsdf_transparency(const KernelGlobals *kg, const ShaderData *sd)
+ccl_device float3 shader_bsdf_transparency(METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE const ShaderData *sd)
 {
   if (sd->flag & SD_HAS_ONLY_VOLUME) {
     return one_float3();
@@ -816,7 +825,7 @@ ccl_device float3 shader_bsdf_transparency(const KernelGlobals *kg, const Shader
   }
 }
 
-ccl_device void shader_bsdf_disable_transparency(const KernelGlobals *kg, ShaderData *sd)
+ccl_device void shader_bsdf_disable_transparency(METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd)
 {
   if (sd->flag & SD_TRANSPARENT) {
     for (int i = 0; i < sd->num_closure; i++) {
@@ -832,7 +841,7 @@ ccl_device void shader_bsdf_disable_transparency(const KernelGlobals *kg, Shader
   }
 }
 
-ccl_device float3 shader_bsdf_alpha(const KernelGlobals *kg, const ShaderData *sd)
+ccl_device float3 shader_bsdf_alpha(METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE const ShaderData *sd)
 {
   float3 alpha = one_float3() - shader_bsdf_transparency(kg, sd);
 
@@ -842,7 +851,7 @@ ccl_device float3 shader_bsdf_alpha(const KernelGlobals *kg, const ShaderData *s
   return alpha;
 }
 
-ccl_device float3 shader_bsdf_diffuse(const KernelGlobals *kg, const ShaderData *sd)
+ccl_device float3 shader_bsdf_diffuse(METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE const ShaderData *sd)
 {
   float3 eval = zero_float3();
 
@@ -857,7 +866,7 @@ ccl_device float3 shader_bsdf_diffuse(const KernelGlobals *kg, const ShaderData 
   return eval;
 }
 
-ccl_device float3 shader_bsdf_glossy(const KernelGlobals *kg, const ShaderData *sd)
+ccl_device float3 shader_bsdf_glossy(METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE const ShaderData *sd)
 {
   float3 eval = zero_float3();
 
@@ -871,7 +880,7 @@ ccl_device float3 shader_bsdf_glossy(const KernelGlobals *kg, const ShaderData *
   return eval;
 }
 
-ccl_device float3 shader_bsdf_transmission(const KernelGlobals *kg, const ShaderData *sd)
+ccl_device float3 shader_bsdf_transmission(METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE const ShaderData *sd)
 {
   float3 eval = zero_float3();
 
@@ -885,7 +894,7 @@ ccl_device float3 shader_bsdf_transmission(const KernelGlobals *kg, const Shader
   return eval;
 }
 
-ccl_device float3 shader_bsdf_average_normal(const KernelGlobals *kg, const ShaderData *sd)
+ccl_device float3 shader_bsdf_average_normal(METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE const ShaderData *sd)
 {
   float3 N = zero_float3();
 
@@ -899,7 +908,7 @@ ccl_device float3 shader_bsdf_average_normal(const KernelGlobals *kg, const Shad
 }
 
 #ifdef __SUBSURFACE__
-ccl_device float3 shader_bssrdf_normal(const ShaderData *sd)
+ccl_device float3 shader_bssrdf_normal(METAL_ASQ_DEVICE const ShaderData *sd)
 {
   float3 N = zero_float3();
 
@@ -920,7 +929,7 @@ ccl_device float3 shader_bssrdf_normal(const ShaderData *sd)
 
 /* Constant emission optimization */
 
-ccl_device bool shader_constant_emission_eval(const KernelGlobals *kg, int shader, float3 *eval)
+ccl_device bool shader_constant_emission_eval(METAL_ASQ_DEVICE const KernelGlobals *kg, int shader, METAL_ASQ_THREAD float3 *eval)
 {
   int shader_index = shader & SHADER_MASK;
   int shader_flag = kernel_tex_fetch(__shaders, shader_index).flags;
@@ -938,7 +947,7 @@ ccl_device bool shader_constant_emission_eval(const KernelGlobals *kg, int shade
 
 /* Background */
 
-ccl_device float3 shader_background_eval(const ShaderData *sd)
+ccl_device float3 shader_background_eval(METAL_ASQ_DEVICE const ShaderData *sd)
 {
   if (sd->flag & SD_EMISSION) {
     return sd->closure_emission_background;
@@ -950,7 +959,7 @@ ccl_device float3 shader_background_eval(const ShaderData *sd)
 
 /* Emission */
 
-ccl_device float3 shader_emissive_eval(const ShaderData *sd)
+ccl_device float3 shader_emissive_eval(METAL_ASQ_DEVICE const ShaderData *sd)
 {
   if (sd->flag & SD_EMISSION) {
     return emissive_simple_eval(sd->Ng, sd->I) * sd->closure_emission_background;
@@ -962,7 +971,7 @@ ccl_device float3 shader_emissive_eval(const ShaderData *sd)
 
 /* Holdout */
 
-ccl_device float3 shader_holdout_apply(const KernelGlobals *kg, ShaderData *sd)
+ccl_device float3 shader_holdout_apply(METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd)
 {
   float3 weight = zero_float3();
 
@@ -1001,7 +1010,7 @@ ccl_device float3 shader_holdout_apply(const KernelGlobals *kg, ShaderData *sd)
 
 template<uint node_feature_mask>
 ccl_device void shader_eval_surface(INTEGRATOR_STATE_CONST_ARGS,
-                                    ShaderData *ccl_restrict sd,
+                                    METAL_ASQ_DEVICE ShaderData *ccl_restrict sd,
                                     ccl_global float *ccl_restrict buffer,
                                     int path_flag)
 {
@@ -1064,11 +1073,11 @@ ccl_device void shader_eval_surface(INTEGRATOR_STATE_CONST_ARGS,
 
 #ifdef __VOLUME__
 
-ccl_device_inline void _shader_volume_phase_multi_eval(const ShaderData *sd,
+ccl_device_inline void _shader_volume_phase_multi_eval(METAL_ASQ_DEVICE const ShaderData *sd,
                                                        const float3 omega_in,
-                                                       float *pdf,
+                                                       METAL_ASQ_THREAD float *pdf,
                                                        int skip_phase,
-                                                       BsdfEval *result_eval,
+                                                       METAL_ASQ_THREAD BsdfEval *result_eval,
                                                        float sum_pdf,
                                                        float sum_sample_weight)
 {
@@ -1094,11 +1103,11 @@ ccl_device_inline void _shader_volume_phase_multi_eval(const ShaderData *sd,
   *pdf = (sum_sample_weight > 0.0f) ? sum_pdf / sum_sample_weight : 0.0f;
 }
 
-ccl_device void shader_volume_phase_eval(const KernelGlobals *kg,
-                                         const ShaderData *sd,
+ccl_device void shader_volume_phase_eval(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                         METAL_ASQ_DEVICE const ShaderData *sd,
                                          const float3 omega_in,
-                                         BsdfEval *eval,
-                                         float *pdf)
+                                         METAL_ASQ_THREAD BsdfEval *eval,
+                                         METAL_ASQ_THREAD float *pdf)
 {
   PROFILING_INIT(kg, PROFILING_CLOSURE_VOLUME_EVAL);
 
@@ -1107,14 +1116,14 @@ ccl_device void shader_volume_phase_eval(const KernelGlobals *kg,
   _shader_volume_phase_multi_eval(sd, omega_in, pdf, -1, eval, 0.0f, 0.0f);
 }
 
-ccl_device int shader_volume_phase_sample(const KernelGlobals *kg,
-                                          const ShaderData *sd,
+ccl_device int shader_volume_phase_sample(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                          METAL_ASQ_DEVICE const ShaderData *sd,
                                           float randu,
                                           float randv,
-                                          BsdfEval *phase_eval,
-                                          float3 *omega_in,
-                                          differential3 *domega_in,
-                                          float *pdf)
+                                          METAL_ASQ_THREAD BsdfEval *phase_eval,
+                                          METAL_ASQ_THREAD float3 *omega_in,
+                                          METAL_ASQ_THREAD differential3 *domega_in,
+                                          METAL_ASQ_THREAD float *pdf)
 {
   PROFILING_INIT(kg, PROFILING_CLOSURE_VOLUME_SAMPLE);
 
@@ -1172,15 +1181,15 @@ ccl_device int shader_volume_phase_sample(const KernelGlobals *kg,
   return label;
 }
 
-ccl_device int shader_phase_sample_closure(const KernelGlobals *kg,
-                                           const ShaderData *sd,
-                                           const ShaderClosure *sc,
+ccl_device int shader_phase_sample_closure(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                           METAL_ASQ_DEVICE const ShaderData *sd,
+                                           METAL_ASQ_THREAD const ShaderClosure *sc,
                                            float randu,
                                            float randv,
-                                           BsdfEval *phase_eval,
-                                           float3 *omega_in,
-                                           differential3 *domega_in,
-                                           float *pdf)
+                                           METAL_ASQ_THREAD BsdfEval *phase_eval,
+                                           METAL_ASQ_THREAD float3 *omega_in,
+                                           METAL_ASQ_THREAD differential3 *domega_in,
+                                           METAL_ASQ_THREAD float *pdf)
 {
   PROFILING_INIT(kg, PROFILING_CLOSURE_VOLUME_SAMPLE);
 
@@ -1200,7 +1209,7 @@ ccl_device int shader_phase_sample_closure(const KernelGlobals *kg,
 
 template<typename StackReadOp>
 ccl_device_inline void shader_eval_volume(INTEGRATOR_STATE_CONST_ARGS,
-                                          ShaderData *ccl_restrict sd,
+                                          METAL_ASQ_DEVICE ShaderData *ccl_restrict sd,
                                           const int path_flag,
                                           StackReadOp stack_read)
 {
@@ -1272,7 +1281,7 @@ ccl_device_inline void shader_eval_volume(INTEGRATOR_STATE_CONST_ARGS,
 
 /* Displacement Evaluation */
 
-ccl_device void shader_eval_displacement(INTEGRATOR_STATE_CONST_ARGS, ShaderData *sd)
+ccl_device void shader_eval_displacement(INTEGRATOR_STATE_CONST_ARGS, METAL_ASQ_DEVICE ShaderData *sd)
 {
   sd->num_closure = 0;
   sd->num_closure_left = 0;
@@ -1294,13 +1303,13 @@ ccl_device void shader_eval_displacement(INTEGRATOR_STATE_CONST_ARGS, ShaderData
 /* Transparent Shadows */
 
 #ifdef __TRANSPARENT_SHADOWS__
-ccl_device bool shader_transparent_shadow(const KernelGlobals *kg, Intersection *isect)
+ccl_device bool shader_transparent_shadow(METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_THREAD Intersection *isect)
 {
   return (intersection_get_shader_flags(kg, isect) & SD_HAS_TRANSPARENT_SHADOW) != 0;
 }
 #endif /* __TRANSPARENT_SHADOWS__ */
 
-ccl_device float shader_cryptomatte_id(const KernelGlobals *kg, int shader)
+ccl_device float shader_cryptomatte_id(METAL_ASQ_DEVICE const KernelGlobals *kg, int shader)
 {
   return kernel_tex_fetch(__shaders, (shader & SHADER_MASK)).cryptomatte_id;
 }

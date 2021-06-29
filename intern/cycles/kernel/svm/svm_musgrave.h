@@ -13,6 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
 
 CCL_NAMESPACE_BEGIN
 
@@ -700,13 +707,13 @@ ccl_device_noinline_cpu float noise_musgrave_ridged_multi_fractal_4d(
   return value;
 }
 
-ccl_device void svm_node_tex_musgrave(const KernelGlobals *kg,
-                                      ShaderData *sd,
-                                      float *stack,
+ccl_device void svm_node_tex_musgrave(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                      METAL_ASQ_DEVICE ShaderData *sd,
+                                      METAL_ASQ_THREAD float *stack,
                                       uint offsets1,
                                       uint offsets2,
                                       uint offsets3,
-                                      int *offset)
+                                      METAL_ASQ_THREAD int *offset)
 {
   uint type, dimensions, co_stack_offset, w_stack_offset;
   uint scale_stack_offset, detail_stack_offset, dimension_stack_offset, lacunarity_stack_offset;

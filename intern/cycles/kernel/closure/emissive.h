@@ -32,11 +32,20 @@
 
 #pragma once
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 CCL_NAMESPACE_BEGIN
 
 /* BACKGROUND CLOSURE */
 
-ccl_device void background_setup(ShaderData *sd, const float3 weight)
+ccl_device void background_setup(METAL_ASQ_DEVICE ShaderData *sd, const float3 weight)
 {
   if (sd->flag & SD_EMISSION) {
     sd->closure_emission_background += weight;
@@ -49,7 +58,7 @@ ccl_device void background_setup(ShaderData *sd, const float3 weight)
 
 /* EMISSION CLOSURE */
 
-ccl_device void emission_setup(ShaderData *sd, const float3 weight)
+ccl_device void emission_setup(METAL_ASQ_DEVICE ShaderData *sd, const float3 weight)
 {
   if (sd->flag & SD_EMISSION) {
     sd->closure_emission_background += weight;
@@ -70,7 +79,7 @@ ccl_device float emissive_pdf(const float3 Ng, const float3 I)
 }
 
 ccl_device void emissive_sample(
-    const float3 Ng, float randu, float randv, float3 *omega_out, float *pdf)
+    const float3 Ng, float randu, float randv, METAL_ASQ_THREAD float3 *omega_out, METAL_ASQ_THREAD float *pdf)
 {
   /* todo: not implemented and used yet */
 }

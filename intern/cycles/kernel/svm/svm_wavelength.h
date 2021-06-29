@@ -30,6 +30,15 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 CCL_NAMESPACE_BEGIN
 
 /* Wavelength to RGB */
@@ -70,7 +79,7 @@ ccl_static_constant float cie_colour_match[81][3] = {
     {0.0001f, 0.0000f, 0.0000f}, {0.0001f, 0.0000f, 0.0000f}, {0.0000f, 0.0000f, 0.0000f}};
 
 ccl_device void svm_node_wavelength(
-    const KernelGlobals *kg, ShaderData *sd, float *stack, uint wavelength, uint color_out)
+                                    METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint wavelength, uint color_out)
 {
   float lambda_nm = stack_load_float(stack, wavelength);
   float ii = (lambda_nm - 380.0f) * (1.0f / 5.0f);  // scaled 0..80

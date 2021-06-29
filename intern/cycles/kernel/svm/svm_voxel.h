@@ -14,13 +14,22 @@
  * limitations under the License.
  */
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 CCL_NAMESPACE_BEGIN
 
 /* TODO(sergey): Think of making it more generic volume-type attribute
  * sampler.
  */
 ccl_device void svm_node_tex_voxel(
-    const KernelGlobals *kg, ShaderData *sd, float *stack, uint4 node, int *offset)
+                                   METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint4 node, METAL_ASQ_THREAD int *offset)
 {
   uint co_offset, density_out_offset, color_out_offset, space;
   svm_unpack_node_uchar4(node.z, &co_offset, &density_out_offset, &color_out_offset, &space);

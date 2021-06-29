@@ -14,10 +14,20 @@
  * limitations under the License.
  */
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
+
 CCL_NAMESPACE_BEGIN
 
-ccl_device void svm_vector_math(float *value,
-                                float3 *vector,
+ccl_device void svm_vector_math(METAL_ASQ_THREAD float *value,
+                                METAL_ASQ_THREAD float3 *vector,
                                 NodeVectorMathType type,
                                 float3 a,
                                 float3 b,

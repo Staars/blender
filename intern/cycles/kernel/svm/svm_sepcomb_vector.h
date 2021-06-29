@@ -13,13 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
 
 CCL_NAMESPACE_BEGIN
 
 /* Vector combine / separate, used for the RGB and XYZ nodes */
 
 ccl_device void svm_node_combine_vector(
-    ShaderData *sd, float *stack, uint in_offset, uint vector_index, uint out_offset)
+                                        METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint in_offset, uint vector_index, uint out_offset)
 {
   float vector = stack_load_float(stack, in_offset);
 
@@ -28,7 +35,7 @@ ccl_device void svm_node_combine_vector(
 }
 
 ccl_device void svm_node_separate_vector(
-    ShaderData *sd, float *stack, uint ivector_offset, uint vector_index, uint out_offset)
+                                         METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint ivector_offset, uint vector_index, uint out_offset)
 {
   float3 vector = stack_load_float3(stack, ivector_offset);
 

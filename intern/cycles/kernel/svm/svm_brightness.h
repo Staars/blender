@@ -14,10 +14,18 @@
  * limitations under the License.
  */
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
 CCL_NAMESPACE_BEGIN
 
 ccl_device void svm_node_brightness(
-    ShaderData *sd, float *stack, uint in_color, uint out_color, uint node)
+                                    METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint in_color, uint out_color, uint node)
 {
   uint bright_offset, contrast_offset;
   float3 color = stack_load_float3(stack, in_color);

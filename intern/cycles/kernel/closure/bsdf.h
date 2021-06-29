@@ -16,6 +16,15 @@
 
 #pragma once
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 // clang-format off
 #include "kernel/closure/bsdf_ashikhmin_velvet.h"
 #include "kernel/closure/bsdf_diffuse.h"
@@ -41,7 +50,7 @@ CCL_NAMESPACE_BEGIN
 
 /* Returns the square of the roughness of the closure if it has roughness,
  * 0 for singular closures and 1 otherwise. */
-ccl_device_inline float bsdf_get_specular_roughness_squared(const ShaderClosure *sc)
+ccl_device_inline float bsdf_get_specular_roughness_squared(METAL_ASQ_THREAD const ShaderClosure *sc)
 {
   if (CLOSURE_IS_BSDF_SINGULAR(sc->type)) {
     return 0.0f;
@@ -55,7 +64,7 @@ ccl_device_inline float bsdf_get_specular_roughness_squared(const ShaderClosure 
   return 1.0f;
 }
 
-ccl_device_inline float bsdf_get_roughness_squared(const ShaderClosure *sc)
+ccl_device_inline float bsdf_get_roughness_squared(METAL_ASQ_THREAD const ShaderClosure *sc)
 {
   /* This version includes diffuse, mainly for baking Principled BSDF
    * where specular and metallic zero otherwise does not bake the
@@ -111,15 +120,15 @@ ccl_device_inline float shift_cos_in(float cos_in, const float frequency_multipl
   return val;
 }
 
-ccl_device_inline int bsdf_sample(const KernelGlobals *kg,
-                                  ShaderData *sd,
-                                  const ShaderClosure *sc,
+ccl_device_inline int bsdf_sample(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                  METAL_ASQ_DEVICE ShaderData *sd,
+                                  METAL_ASQ_THREAD const ShaderClosure *sc,
                                   float randu,
                                   float randv,
-                                  float3 *eval,
-                                  float3 *omega_in,
-                                  differential3 *domega_in,
-                                  float *pdf)
+                                  METAL_ASQ_THREAD float3 *eval,
+                                  METAL_ASQ_THREAD float3 *omega_in,
+                                  METAL_ASQ_THREAD differential3 *domega_in,
+                                  METAL_ASQ_THREAD float *pdf)
 {
   /* For curves use the smooth normal, particularly for ribbons the geometric
    * normal gives too much darkening otherwise. */
@@ -484,12 +493,12 @@ ccl_device
 ccl_device_inline
 #endif
     float3
-    bsdf_eval(const KernelGlobals *kg,
-              ShaderData *sd,
-              const ShaderClosure *sc,
+    bsdf_eval(METAL_ASQ_DEVICE const KernelGlobals *kg,
+              METAL_ASQ_DEVICE ShaderData *sd,
+              METAL_ASQ_THREAD const ShaderClosure *sc,
               const float3 omega_in,
               const bool is_transmission,
-              float *pdf)
+              METAL_ASQ_THREAD float *pdf)
 {
   float3 eval = zero_float3();
 
@@ -683,7 +692,7 @@ ccl_device_inline
   return eval;
 }
 
-ccl_device void bsdf_blur(const KernelGlobals *kg, ShaderClosure *sc, float roughness)
+ccl_device void bsdf_blur(METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_THREAD ShaderClosure *sc, float roughness)
 {
   /* ToDo: do we want to blur volume closures? */
 #ifdef __SVM__
@@ -716,7 +725,7 @@ ccl_device void bsdf_blur(const KernelGlobals *kg, ShaderClosure *sc, float roug
 #endif
 }
 
-ccl_device bool bsdf_merge(ShaderClosure *a, ShaderClosure *b)
+ccl_device bool bsdf_merge(METAL_ASQ_THREAD ShaderClosure *a, METAL_ASQ_THREAD ShaderClosure *b)
 {
 #ifdef __SVM__
   switch (a->type) {

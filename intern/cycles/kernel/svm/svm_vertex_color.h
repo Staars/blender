@@ -13,12 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
 
 CCL_NAMESPACE_BEGIN
 
-ccl_device void svm_node_vertex_color(const KernelGlobals *kg,
-                                      ShaderData *sd,
-                                      float *stack,
+ccl_device void svm_node_vertex_color(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                      METAL_ASQ_DEVICE ShaderData *sd,
+                                      METAL_ASQ_THREAD float *stack,
                                       uint layer_id,
                                       uint color_offset,
                                       uint alpha_offset)
@@ -41,9 +48,9 @@ ccl_device
 ccl_device_noinline
 #endif
     void
-    svm_node_vertex_color_bump_dx(const KernelGlobals *kg,
-                                  ShaderData *sd,
-                                  float *stack,
+    svm_node_vertex_color_bump_dx(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                  METAL_ASQ_DEVICE ShaderData *sd,
+                                  METAL_ASQ_THREAD float *stack,
                                   uint layer_id,
                                   uint color_offset,
                                   uint alpha_offset)
@@ -68,9 +75,9 @@ ccl_device
 ccl_device_noinline
 #endif
     void
-    svm_node_vertex_color_bump_dy(const KernelGlobals *kg,
-                                  ShaderData *sd,
-                                  float *stack,
+    svm_node_vertex_color_bump_dy(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                  METAL_ASQ_DEVICE ShaderData *sd,
+                                  METAL_ASQ_THREAD float *stack,
                                   uint layer_id,
                                   uint color_offset,
                                   uint alpha_offset)

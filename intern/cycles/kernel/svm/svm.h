@@ -38,20 +38,29 @@
  * mostly taken care of in the SVM compiler.
  */
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 #include "kernel/svm/svm_types.h"
 
 CCL_NAMESPACE_BEGIN
 
 /* Stack */
 
-ccl_device_inline float3 stack_load_float3(float *stack, uint a)
+ccl_device_inline float3 stack_load_float3(METAL_ASQ_THREAD float *stack, uint a)
 {
   kernel_assert(a + 2 < SVM_STACK_SIZE);
 
   return make_float3(stack[a + 0], stack[a + 1], stack[a + 2]);
 }
 
-ccl_device_inline void stack_store_float3(float *stack, uint a, float3 f)
+ccl_device_inline void stack_store_float3(METAL_ASQ_THREAD float *stack, uint a, float3 f)
 {
   kernel_assert(a + 2 < SVM_STACK_SIZE);
 
@@ -60,38 +69,38 @@ ccl_device_inline void stack_store_float3(float *stack, uint a, float3 f)
   stack[a + 2] = f.z;
 }
 
-ccl_device_inline float stack_load_float(float *stack, uint a)
+ccl_device_inline float stack_load_float(METAL_ASQ_THREAD float *stack, uint a)
 {
   kernel_assert(a < SVM_STACK_SIZE);
 
   return stack[a];
 }
 
-ccl_device_inline float stack_load_float_default(float *stack, uint a, uint value)
+ccl_device_inline float stack_load_float_default(METAL_ASQ_THREAD float *stack, uint a, uint value)
 {
   return (a == (uint)SVM_STACK_INVALID) ? __uint_as_float(value) : stack_load_float(stack, a);
 }
 
-ccl_device_inline void stack_store_float(float *stack, uint a, float f)
+ccl_device_inline void stack_store_float(METAL_ASQ_THREAD float *stack, uint a, float f)
 {
   kernel_assert(a < SVM_STACK_SIZE);
 
   stack[a] = f;
 }
 
-ccl_device_inline int stack_load_int(float *stack, uint a)
+ccl_device_inline int stack_load_int(METAL_ASQ_THREAD float *stack, uint a)
 {
   kernel_assert(a < SVM_STACK_SIZE);
 
   return __float_as_int(stack[a]);
 }
 
-ccl_device_inline int stack_load_int_default(float *stack, uint a, uint value)
+ccl_device_inline int stack_load_int_default(METAL_ASQ_THREAD float *stack, uint a, uint value)
 {
   return (a == (uint)SVM_STACK_INVALID) ? (int)value : stack_load_int(stack, a);
 }
 
-ccl_device_inline void stack_store_int(float *stack, uint a, int i)
+ccl_device_inline void stack_store_int(METAL_ASQ_THREAD float *stack, uint a, int i)
 {
   kernel_assert(a < SVM_STACK_SIZE);
 
@@ -105,14 +114,14 @@ ccl_device_inline bool stack_valid(uint a)
 
 /* Reading Nodes */
 
-ccl_device_inline uint4 read_node(const KernelGlobals *kg, int *offset)
+ccl_device_inline uint4 read_node(METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_THREAD int *offset)
 {
   uint4 node = kernel_tex_fetch(__svm_nodes, *offset);
   (*offset)++;
   return node;
 }
 
-ccl_device_inline float4 read_node_float(const KernelGlobals *kg, int *offset)
+ccl_device_inline float4 read_node_float(METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_THREAD int *offset)
 {
   uint4 node = kernel_tex_fetch(__svm_nodes, *offset);
   float4 f = make_float4(__uint_as_float(node.x),
@@ -123,7 +132,7 @@ ccl_device_inline float4 read_node_float(const KernelGlobals *kg, int *offset)
   return f;
 }
 
-ccl_device_inline float4 fetch_node_float(const KernelGlobals *kg, int offset)
+ccl_device_inline float4 fetch_node_float(METAL_ASQ_DEVICE const KernelGlobals *kg, int offset)
 {
   uint4 node = kernel_tex_fetch(__svm_nodes, offset);
   return make_float4(__uint_as_float(node.x),
@@ -132,20 +141,20 @@ ccl_device_inline float4 fetch_node_float(const KernelGlobals *kg, int offset)
                      __uint_as_float(node.w));
 }
 
-ccl_device_forceinline void svm_unpack_node_uchar2(uint i, uint *x, uint *y)
+ccl_device_forceinline void svm_unpack_node_uchar2(uint i, METAL_ASQ_THREAD uint *x, METAL_ASQ_THREAD uint *y)
 {
   *x = (i & 0xFF);
   *y = ((i >> 8) & 0xFF);
 }
 
-ccl_device_forceinline void svm_unpack_node_uchar3(uint i, uint *x, uint *y, uint *z)
+ccl_device_forceinline void svm_unpack_node_uchar3(uint i, METAL_ASQ_THREAD uint *x, METAL_ASQ_THREAD uint *y, METAL_ASQ_THREAD uint *z)
 {
   *x = (i & 0xFF);
   *y = ((i >> 8) & 0xFF);
   *z = ((i >> 16) & 0xFF);
 }
 
-ccl_device_forceinline void svm_unpack_node_uchar4(uint i, uint *x, uint *y, uint *z, uint *w)
+ccl_device_forceinline void svm_unpack_node_uchar4(uint i, METAL_ASQ_THREAD uint *x, METAL_ASQ_THREAD uint *y, METAL_ASQ_THREAD uint *z, METAL_ASQ_THREAD uint *w)
 {
   *x = (i & 0xFF);
   *y = ((i >> 8) & 0xFF);
@@ -219,7 +228,7 @@ CCL_NAMESPACE_BEGIN
 /* Main Interpreter Loop */
 template<uint node_feature_mask, ShaderType type>
 ccl_device void svm_eval_nodes(INTEGRATOR_STATE_CONST_ARGS,
-                               ShaderData *sd,
+                               METAL_ASQ_DEVICE ShaderData *sd,
                                ccl_global float *render_buffer,
                                int path_flag)
 {

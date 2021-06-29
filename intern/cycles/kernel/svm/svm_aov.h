@@ -13,6 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
 
 #include "kernel/kernel_write_passes.h"
 
@@ -26,8 +34,8 @@ ccl_device_inline bool svm_node_aov_check(const int path_flag, ccl_global float 
 }
 
 ccl_device void svm_node_aov_color(INTEGRATOR_STATE_CONST_ARGS,
-                                   ShaderData *sd,
-                                   float *stack,
+                                   METAL_ASQ_DEVICE ShaderData *sd,
+                                   METAL_ASQ_THREAD float *stack,
                                    uint4 node,
                                    ccl_global float *render_buffer)
 {
@@ -44,8 +52,8 @@ ccl_device void svm_node_aov_color(INTEGRATOR_STATE_CONST_ARGS,
 }
 
 ccl_device void svm_node_aov_value(INTEGRATOR_STATE_CONST_ARGS,
-                                   ShaderData *sd,
-                                   float *stack,
+                                   METAL_ASQ_DEVICE ShaderData *sd,
+                                   METAL_ASQ_THREAD float *stack,
                                    uint4 node,
                                    ccl_global float *render_buffer)
 {

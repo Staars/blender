@@ -30,12 +30,20 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
 CCL_NAMESPACE_BEGIN
 
 /* Wireframe Node */
 
 ccl_device_inline float wireframe(
-    const KernelGlobals *kg, ShaderData *sd, float size, int pixel_size, float3 *P)
+                                  METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd, float size, int pixel_size, METAL_ASQ_THREAD float3 *P)
 {
 #ifdef __HAIR__
   if (sd->prim != PRIM_NONE && sd->type & PRIMITIVE_ALL_TRIANGLE)
@@ -88,9 +96,9 @@ ccl_device_inline float wireframe(
   return 0.0f;
 }
 
-ccl_device void svm_node_wireframe(const KernelGlobals *kg,
-                                   ShaderData *sd,
-                                   float *stack,
+ccl_device void svm_node_wireframe(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                   METAL_ASQ_DEVICE ShaderData *sd,
+                                   METAL_ASQ_THREAD float *stack,
                                    uint4 node)
 {
   uint in_size = node.y;

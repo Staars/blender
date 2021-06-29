@@ -14,6 +14,15 @@
  * limitations under the License.
  */
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 CCL_NAMESPACE_BEGIN
 
 /*
@@ -41,9 +50,9 @@ ccl_device void voronoi_f1_1d(float w,
                               float exponent,
                               float randomness,
                               NodeVoronoiDistanceMetric metric,
-                              float *outDistance,
-                              float3 *outColor,
-                              float *outW)
+                              METAL_ASQ_THREAD float *outDistance,
+                              METAL_ASQ_THREAD float3 *outColor,
+                              METAL_ASQ_THREAD float *outW)
 {
   float cellPosition = floorf(w);
   float localPosition = w - cellPosition;
@@ -71,9 +80,9 @@ ccl_device void voronoi_smooth_f1_1d(float w,
                                      float exponent,
                                      float randomness,
                                      NodeVoronoiDistanceMetric metric,
-                                     float *outDistance,
-                                     float3 *outColor,
-                                     float *outW)
+                                     METAL_ASQ_THREAD float *outDistance,
+                                     METAL_ASQ_THREAD float3 *outColor,
+                                     METAL_ASQ_THREAD float *outW)
 {
   float cellPosition = floorf(w);
   float localPosition = w - cellPosition;
@@ -103,9 +112,9 @@ ccl_device void voronoi_f2_1d(float w,
                               float exponent,
                               float randomness,
                               NodeVoronoiDistanceMetric metric,
-                              float *outDistance,
-                              float3 *outColor,
-                              float *outW)
+                              METAL_ASQ_THREAD float *outDistance,
+                              METAL_ASQ_THREAD float3 *outColor,
+                              METAL_ASQ_THREAD float *outW)
 {
   float cellPosition = floorf(w);
   float localPosition = w - cellPosition;
@@ -139,7 +148,7 @@ ccl_device void voronoi_f2_1d(float w,
   *outW = positionF2 + cellPosition;
 }
 
-ccl_device void voronoi_distance_to_edge_1d(float w, float randomness, float *outDistance)
+ccl_device void voronoi_distance_to_edge_1d(float w, float randomness, METAL_ASQ_THREAD float *outDistance)
 {
   float cellPosition = floorf(w);
   float localPosition = w - cellPosition;
@@ -153,7 +162,7 @@ ccl_device void voronoi_distance_to_edge_1d(float w, float randomness, float *ou
   *outDistance = min(distanceToMidLeft, distanceToMidRight);
 }
 
-ccl_device void voronoi_n_sphere_radius_1d(float w, float randomness, float *outRadius)
+ccl_device void voronoi_n_sphere_radius_1d(float w, float randomness, METAL_ASQ_THREAD float *outRadius)
 {
   float cellPosition = floorf(w);
   float localPosition = w - cellPosition;
@@ -218,9 +227,9 @@ ccl_device void voronoi_f1_2d(float2 coord,
                               float exponent,
                               float randomness,
                               NodeVoronoiDistanceMetric metric,
-                              float *outDistance,
-                              float3 *outColor,
-                              float2 *outPosition)
+                              METAL_ASQ_THREAD float *outDistance,
+                              METAL_ASQ_THREAD float3 *outColor,
+                              METAL_ASQ_THREAD float2 *outPosition)
 {
   float2 cellPosition = floor(coord);
   float2 localPosition = coord - cellPosition;
@@ -251,9 +260,9 @@ ccl_device void voronoi_smooth_f1_2d(float2 coord,
                                      float exponent,
                                      float randomness,
                                      NodeVoronoiDistanceMetric metric,
-                                     float *outDistance,
-                                     float3 *outColor,
-                                     float2 *outPosition)
+                                     METAL_ASQ_THREAD float *outDistance,
+                                     METAL_ASQ_THREAD float3 *outColor,
+                                     METAL_ASQ_THREAD float2 *outPosition)
 {
   float2 cellPosition = floor(coord);
   float2 localPosition = coord - cellPosition;
@@ -286,9 +295,9 @@ ccl_device void voronoi_f2_2d(float2 coord,
                               float exponent,
                               float randomness,
                               NodeVoronoiDistanceMetric metric,
-                              float *outDistance,
-                              float3 *outColor,
-                              float2 *outPosition)
+                              METAL_ASQ_THREAD float *outDistance,
+                              METAL_ASQ_THREAD float3 *outColor,
+                              METAL_ASQ_THREAD float2 *outPosition)
 {
   float2 cellPosition = floor(coord);
   float2 localPosition = coord - cellPosition;
@@ -325,7 +334,7 @@ ccl_device void voronoi_f2_2d(float2 coord,
   *outPosition = positionF2 + cellPosition;
 }
 
-ccl_device void voronoi_distance_to_edge_2d(float2 coord, float randomness, float *outDistance)
+ccl_device void voronoi_distance_to_edge_2d(float2 coord, float randomness, METAL_ASQ_THREAD float *outDistance)
 {
   float2 cellPosition = floor(coord);
   float2 localPosition = coord - cellPosition;
@@ -364,7 +373,7 @@ ccl_device void voronoi_distance_to_edge_2d(float2 coord, float randomness, floa
   *outDistance = minDistance;
 }
 
-ccl_device void voronoi_n_sphere_radius_2d(float2 coord, float randomness, float *outRadius)
+ccl_device void voronoi_n_sphere_radius_2d(float2 coord, float randomness, METAL_ASQ_THREAD float *outRadius)
 {
   float2 cellPosition = floor(coord);
   float2 localPosition = coord - cellPosition;
@@ -436,9 +445,9 @@ ccl_device void voronoi_f1_3d(float3 coord,
                               float exponent,
                               float randomness,
                               NodeVoronoiDistanceMetric metric,
-                              float *outDistance,
-                              float3 *outColor,
-                              float3 *outPosition)
+                              METAL_ASQ_THREAD float *outDistance,
+                              METAL_ASQ_THREAD float3 *outColor,
+                              METAL_ASQ_THREAD float3 *outPosition)
 {
   float3 cellPosition = floor(coord);
   float3 localPosition = coord - cellPosition;
@@ -472,9 +481,9 @@ ccl_device void voronoi_smooth_f1_3d(float3 coord,
                                      float exponent,
                                      float randomness,
                                      NodeVoronoiDistanceMetric metric,
-                                     float *outDistance,
-                                     float3 *outColor,
-                                     float3 *outPosition)
+                                     METAL_ASQ_THREAD float *outDistance,
+                                     METAL_ASQ_THREAD float3 *outColor,
+                                     METAL_ASQ_THREAD float3 *outPosition)
 {
   float3 cellPosition = floor(coord);
   float3 localPosition = coord - cellPosition;
@@ -510,9 +519,9 @@ ccl_device void voronoi_f2_3d(float3 coord,
                               float exponent,
                               float randomness,
                               NodeVoronoiDistanceMetric metric,
-                              float *outDistance,
-                              float3 *outColor,
-                              float3 *outPosition)
+                              METAL_ASQ_THREAD float *outDistance,
+                              METAL_ASQ_THREAD float3 *outColor,
+                              METAL_ASQ_THREAD float3 *outPosition)
 {
   float3 cellPosition = floor(coord);
   float3 localPosition = coord - cellPosition;
@@ -552,7 +561,7 @@ ccl_device void voronoi_f2_3d(float3 coord,
   *outPosition = positionF2 + cellPosition;
 }
 
-ccl_device void voronoi_distance_to_edge_3d(float3 coord, float randomness, float *outDistance)
+ccl_device void voronoi_distance_to_edge_3d(float3 coord, float randomness, METAL_ASQ_THREAD float *outDistance)
 {
   float3 cellPosition = floor(coord);
   float3 localPosition = coord - cellPosition;
@@ -595,7 +604,7 @@ ccl_device void voronoi_distance_to_edge_3d(float3 coord, float randomness, floa
   *outDistance = minDistance;
 }
 
-ccl_device void voronoi_n_sphere_radius_3d(float3 coord, float randomness, float *outRadius)
+ccl_device void voronoi_n_sphere_radius_3d(float3 coord, float randomness, METAL_ASQ_THREAD float *outRadius)
 {
   float3 cellPosition = floor(coord);
   float3 localPosition = coord - cellPosition;
@@ -671,9 +680,9 @@ ccl_device void voronoi_f1_4d(float4 coord,
                               float exponent,
                               float randomness,
                               NodeVoronoiDistanceMetric metric,
-                              float *outDistance,
-                              float3 *outColor,
-                              float4 *outPosition)
+                              METAL_ASQ_THREAD float *outDistance,
+                              METAL_ASQ_THREAD float3 *outColor,
+                              METAL_ASQ_THREAD float4 *outPosition)
 {
   float4 cellPosition = floor(coord);
   float4 localPosition = coord - cellPosition;
@@ -710,9 +719,9 @@ ccl_device void voronoi_smooth_f1_4d(float4 coord,
                                      float exponent,
                                      float randomness,
                                      NodeVoronoiDistanceMetric metric,
-                                     float *outDistance,
-                                     float3 *outColor,
-                                     float4 *outPosition)
+                                     METAL_ASQ_THREAD float *outDistance,
+                                     METAL_ASQ_THREAD float3 *outColor,
+                                     METAL_ASQ_THREAD float4 *outPosition)
 {
   float4 cellPosition = floor(coord);
   float4 localPosition = coord - cellPosition;
@@ -751,9 +760,9 @@ ccl_device void voronoi_f2_4d(float4 coord,
                               float exponent,
                               float randomness,
                               NodeVoronoiDistanceMetric metric,
-                              float *outDistance,
-                              float3 *outColor,
-                              float4 *outPosition)
+                              METAL_ASQ_THREAD float *outDistance,
+                              METAL_ASQ_THREAD float3 *outColor,
+                              METAL_ASQ_THREAD float4 *outPosition)
 {
   float4 cellPosition = floor(coord);
   float4 localPosition = coord - cellPosition;
@@ -796,7 +805,7 @@ ccl_device void voronoi_f2_4d(float4 coord,
   *outPosition = positionF2 + cellPosition;
 }
 
-ccl_device void voronoi_distance_to_edge_4d(float4 coord, float randomness, float *outDistance)
+ccl_device void voronoi_distance_to_edge_4d(float4 coord, float randomness, METAL_ASQ_THREAD float *outDistance)
 {
   float4 cellPosition = floor(coord);
   float4 localPosition = coord - cellPosition;
@@ -845,7 +854,7 @@ ccl_device void voronoi_distance_to_edge_4d(float4 coord, float randomness, floa
   *outDistance = minDistance;
 }
 
-ccl_device void voronoi_n_sphere_radius_4d(float4 coord, float randomness, float *outRadius)
+ccl_device void voronoi_n_sphere_radius_4d(float4 coord, float randomness, METAL_ASQ_THREAD float *outRadius)
 {
   float4 cellPosition = floor(coord);
   float4 localPosition = coord - cellPosition;
@@ -898,13 +907,13 @@ ccl_device void voronoi_n_sphere_radius_4d(float4 coord, float randomness, float
 }
 
 template<uint node_feature_mask>
-ccl_device void svm_node_tex_voronoi(const KernelGlobals *kg,
-                                     ShaderData *sd,
-                                     float *stack,
+ccl_device void svm_node_tex_voronoi(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                     METAL_ASQ_DEVICE ShaderData *sd,
+                                     METAL_ASQ_THREAD float *stack,
                                      uint dimensions,
                                      uint feature,
                                      uint metric,
-                                     int *offset)
+                                     METAL_ASQ_THREAD int *offset)
 {
   uint4 stack_offsets = read_node(kg, offset);
   uint4 defaults = read_node(kg, offset);

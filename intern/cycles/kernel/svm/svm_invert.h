@@ -13,6 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
 
 CCL_NAMESPACE_BEGIN
 
@@ -22,7 +29,7 @@ ccl_device float invert(float color, float factor)
 }
 
 ccl_device void svm_node_invert(
-    ShaderData *sd, float *stack, uint in_fac, uint in_color, uint out_color)
+                                METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint in_fac, uint in_color, uint out_color)
 {
   float factor = stack_load_float(stack, in_fac);
   float3 color = stack_load_float3(stack, in_color);

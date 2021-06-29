@@ -14,17 +14,26 @@
  * limitations under the License.
  */
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 CCL_NAMESPACE_BEGIN
 
 /* Clamp Node */
 
-ccl_device void svm_node_clamp(const KernelGlobals *kg,
-                               ShaderData *sd,
-                               float *stack,
+ccl_device void svm_node_clamp(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                               METAL_ASQ_DEVICE ShaderData *sd,
+                               METAL_ASQ_THREAD float *stack,
                                uint value_stack_offset,
                                uint parameters_stack_offsets,
                                uint result_stack_offset,
-                               int *offset)
+                               METAL_ASQ_THREAD int *offset)
 {
   uint min_stack_offset, max_stack_offset, type;
   svm_unpack_node_uchar3(parameters_stack_offsets, &min_stack_offset, &max_stack_offset, &type);

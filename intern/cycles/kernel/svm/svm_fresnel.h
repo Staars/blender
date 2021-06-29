@@ -13,13 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
 
 CCL_NAMESPACE_BEGIN
 
 /* Fresnel Node */
 
 ccl_device void svm_node_fresnel(
-    ShaderData *sd, float *stack, uint ior_offset, uint ior_value, uint node)
+                                 METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint ior_offset, uint ior_value, uint node)
 {
   uint normal_offset, out_offset;
   svm_unpack_node_uchar2(node, &normal_offset, &out_offset);
@@ -37,7 +45,7 @@ ccl_device void svm_node_fresnel(
 
 /* Layer Weight Node */
 
-ccl_device void svm_node_layer_weight(ShaderData *sd, float *stack, uint4 node)
+ccl_device void svm_node_layer_weight(METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint4 node)
 {
   uint blend_offset = node.y;
   uint blend_value = node.z;

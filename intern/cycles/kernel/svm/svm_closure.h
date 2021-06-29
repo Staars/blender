@@ -14,12 +14,20 @@
  * limitations under the License.
  */
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
 CCL_NAMESPACE_BEGIN
 
 /* Closure Nodes */
 
 ccl_device void svm_node_glass_setup(
-    ShaderData *sd, MicrofacetBsdf *bsdf, int type, float eta, float roughness, bool refract)
+                                     METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD MicrofacetBsdf *bsdf, int type, float eta, float roughness, bool refract)
 {
   if (type == CLOSURE_BSDF_SHARP_GLASS_ID) {
     if (refract) {
@@ -59,7 +67,7 @@ ccl_device void svm_node_glass_setup(
 
 template<uint node_feature_mask, ShaderType shader_type>
 ccl_device void svm_node_closure_bsdf(
-    const KernelGlobals *kg, ShaderData *sd, float *stack, uint4 node, int path_flag, int *offset)
+                                      METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint4 node, int path_flag, METAL_ASQ_THREAD int *offset)
 {
   uint type, param1_offset, param2_offset;
 
@@ -906,9 +914,9 @@ ccl_device void svm_node_closure_bsdf(
 }
 
 template<ShaderType shader_type>
-ccl_device void svm_node_closure_volume(const KernelGlobals *kg,
-                                        ShaderData *sd,
-                                        float *stack,
+ccl_device void svm_node_closure_volume(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                        METAL_ASQ_DEVICE ShaderData *sd,
+                                        METAL_ASQ_THREAD float *stack,
                                         uint4 node)
 {
 #ifdef __VOLUME__
@@ -962,7 +970,7 @@ ccl_device void svm_node_closure_volume(const KernelGlobals *kg,
 
 template<ShaderType shader_type>
 ccl_device void svm_node_principled_volume(
-    const KernelGlobals *kg, ShaderData *sd, float *stack, uint4 node, int path_flag, int *offset)
+                                           METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint4 node, int path_flag, METAL_ASQ_THREAD int *offset)
 {
 #ifdef __VOLUME__
   uint4 value_node = read_node(kg, offset);
@@ -1071,7 +1079,7 @@ ccl_device void svm_node_principled_volume(
 #endif
 }
 
-ccl_device void svm_node_closure_emission(ShaderData *sd, float *stack, uint4 node)
+ccl_device void svm_node_closure_emission(METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint4 node)
 {
   uint mix_weight_offset = node.y;
   float3 weight = sd->svm_closure_weight;
@@ -1088,7 +1096,7 @@ ccl_device void svm_node_closure_emission(ShaderData *sd, float *stack, uint4 no
   emission_setup(sd, weight);
 }
 
-ccl_device void svm_node_closure_background(ShaderData *sd, float *stack, uint4 node)
+ccl_device void svm_node_closure_background(METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint4 node)
 {
   uint mix_weight_offset = node.y;
   float3 weight = sd->svm_closure_weight;
@@ -1105,7 +1113,7 @@ ccl_device void svm_node_closure_background(ShaderData *sd, float *stack, uint4 
   background_setup(sd, weight);
 }
 
-ccl_device void svm_node_closure_holdout(ShaderData *sd, float *stack, uint4 node)
+ccl_device void svm_node_closure_holdout(METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint4 node)
 {
   uint mix_weight_offset = node.y;
 
@@ -1126,27 +1134,27 @@ ccl_device void svm_node_closure_holdout(ShaderData *sd, float *stack, uint4 nod
 
 /* Closure Nodes */
 
-ccl_device_inline void svm_node_closure_store_weight(ShaderData *sd, float3 weight)
+ccl_device_inline void svm_node_closure_store_weight(METAL_ASQ_DEVICE ShaderData *sd, float3 weight)
 {
   sd->svm_closure_weight = weight;
 }
 
-ccl_device void svm_node_closure_set_weight(ShaderData *sd, uint r, uint g, uint b)
+ccl_device void svm_node_closure_set_weight(METAL_ASQ_DEVICE ShaderData *sd, uint r, uint g, uint b)
 {
   float3 weight = make_float3(__uint_as_float(r), __uint_as_float(g), __uint_as_float(b));
   svm_node_closure_store_weight(sd, weight);
 }
 
-ccl_device void svm_node_closure_weight(ShaderData *sd, float *stack, uint weight_offset)
+ccl_device void svm_node_closure_weight(METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint weight_offset)
 {
   float3 weight = stack_load_float3(stack, weight_offset);
 
   svm_node_closure_store_weight(sd, weight);
 }
 
-ccl_device void svm_node_emission_weight(const KernelGlobals *kg,
-                                         ShaderData *sd,
-                                         float *stack,
+ccl_device void svm_node_emission_weight(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                         METAL_ASQ_DEVICE ShaderData *sd,
+                                         METAL_ASQ_THREAD float *stack,
                                          uint4 node)
 {
   uint color_offset = node.y;
@@ -1158,7 +1166,7 @@ ccl_device void svm_node_emission_weight(const KernelGlobals *kg,
   svm_node_closure_store_weight(sd, weight);
 }
 
-ccl_device void svm_node_mix_closure(ShaderData *sd, float *stack, uint4 node)
+ccl_device void svm_node_mix_closure(METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint4 node)
 {
   /* fetch weight from blend input, previous mix closures,
    * and write to stack to be used by closure nodes later */
@@ -1181,7 +1189,7 @@ ccl_device void svm_node_mix_closure(ShaderData *sd, float *stack, uint4 node)
 /* (Bump) normal */
 
 ccl_device void svm_node_set_normal(
-    const KernelGlobals *kg, ShaderData *sd, float *stack, uint in_direction, uint out_normal)
+                                    METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint in_direction, uint out_normal)
 {
   float3 normal = stack_load_float3(stack, in_direction);
   sd->N = normal;

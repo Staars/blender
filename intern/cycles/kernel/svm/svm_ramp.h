@@ -17,11 +17,19 @@
 #ifndef __SVM_RAMP_H__
 #define __SVM_RAMP_H__
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
 CCL_NAMESPACE_BEGIN
 
 /* NOTE: svm_ramp.h, svm_ramp_util.h and node_ramp_util.h must stay consistent */
 
-ccl_device_inline float4 rgb_ramp_lookup(const KernelGlobals *kg,
+ccl_device_inline float4 rgb_ramp_lookup(METAL_ASQ_DEVICE const KernelGlobals *kg,
                                          int offset,
                                          float f,
                                          bool interpolate,
@@ -58,7 +66,7 @@ ccl_device_inline float4 rgb_ramp_lookup(const KernelGlobals *kg,
 }
 
 ccl_device void svm_node_rgb_ramp(
-    const KernelGlobals *kg, ShaderData *sd, float *stack, uint4 node, int *offset)
+                                  METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint4 node, METAL_ASQ_THREAD int *offset)
 {
   uint fac_offset, color_offset, alpha_offset;
   uint interpolate = node.z;
@@ -79,7 +87,7 @@ ccl_device void svm_node_rgb_ramp(
 }
 
 ccl_device void svm_node_curves(
-    const KernelGlobals *kg, ShaderData *sd, float *stack, uint4 node, int *offset)
+                                METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint4 node, METAL_ASQ_THREAD int *offset)
 {
   uint fac_offset, color_offset, out_offset;
   svm_unpack_node_uchar3(node.y, &fac_offset, &color_offset, &out_offset);

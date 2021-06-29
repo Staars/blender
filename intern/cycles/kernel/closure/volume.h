@@ -16,11 +16,20 @@
 
 #pragma once
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 CCL_NAMESPACE_BEGIN
 
 /* VOLUME EXTINCTION */
 
-ccl_device void volume_extinction_setup(ShaderData *sd, float3 weight)
+ccl_device void volume_extinction_setup(METAL_ASQ_DEVICE ShaderData *sd, float3 weight)
 {
   if (sd->flag & SD_EXTINCTION) {
     sd->closure_transparent_extinction += weight;
@@ -51,7 +60,7 @@ ccl_device float single_peaked_henyey_greenstein(float cos_theta, float g)
          (M_1_PI_F * 0.25f);
 };
 
-ccl_device int volume_henyey_greenstein_setup(HenyeyGreensteinVolume *volume)
+ccl_device int volume_henyey_greenstein_setup(METAL_ASQ_THREAD HenyeyGreensteinVolume *volume)
 {
   volume->type = CLOSURE_VOLUME_HENYEY_GREENSTEIN_ID;
 
@@ -61,7 +70,7 @@ ccl_device int volume_henyey_greenstein_setup(HenyeyGreensteinVolume *volume)
   return SD_SCATTER;
 }
 
-ccl_device bool volume_henyey_greenstein_merge(const ShaderClosure *a, const ShaderClosure *b)
+ccl_device bool volume_henyey_greenstein_merge(METAL_ASQ_THREAD const ShaderClosure *a, METAL_ASQ_THREAD const ShaderClosure *b)
 {
   const HenyeyGreensteinVolume *volume_a = (const HenyeyGreensteinVolume *)a;
   const HenyeyGreensteinVolume *volume_b = (const HenyeyGreensteinVolume *)b;
@@ -69,10 +78,10 @@ ccl_device bool volume_henyey_greenstein_merge(const ShaderClosure *a, const Sha
   return (volume_a->g == volume_b->g);
 }
 
-ccl_device float3 volume_henyey_greenstein_eval_phase(const ShaderClosure *sc,
+ccl_device float3 volume_henyey_greenstein_eval_phase(METAL_ASQ_THREAD const ShaderClosure *sc,
                                                       const float3 I,
                                                       float3 omega_in,
-                                                      float *pdf)
+                                                      METAL_ASQ_THREAD float *pdf)
 {
   const HenyeyGreensteinVolume *volume = (const HenyeyGreensteinVolume *)sc;
   float g = volume->g;
@@ -90,7 +99,7 @@ ccl_device float3 volume_henyey_greenstein_eval_phase(const ShaderClosure *sc,
 }
 
 ccl_device float3
-henyey_greenstrein_sample(float3 D, float g, float randu, float randv, float *pdf)
+henyey_greenstrein_sample(float3 D, float g, float randu, float randv, METAL_ASQ_THREAD float *pdf)
 {
   /* match pdf for small g */
   float cos_theta;
@@ -121,17 +130,17 @@ henyey_greenstrein_sample(float3 D, float g, float randu, float randv, float *pd
   return dir;
 }
 
-ccl_device int volume_henyey_greenstein_sample(const ShaderClosure *sc,
+ccl_device int volume_henyey_greenstein_sample(METAL_ASQ_THREAD const ShaderClosure *sc,
                                                float3 I,
                                                float3 dIdx,
                                                float3 dIdy,
                                                float randu,
                                                float randv,
-                                               float3 *eval,
-                                               float3 *omega_in,
-                                               float3 *domega_in_dx,
-                                               float3 *domega_in_dy,
-                                               float *pdf)
+                                               METAL_ASQ_THREAD float3 *eval,
+                                               METAL_ASQ_THREAD float3 *omega_in,
+                                               METAL_ASQ_THREAD float3 *domega_in_dx,
+                                               METAL_ASQ_THREAD float3 *domega_in_dy,
+                                               METAL_ASQ_THREAD float *pdf)
 {
   const HenyeyGreensteinVolume *volume = (const HenyeyGreensteinVolume *)sc;
   float g = volume->g;
@@ -151,24 +160,24 @@ ccl_device int volume_henyey_greenstein_sample(const ShaderClosure *sc,
 
 /* VOLUME CLOSURE */
 
-ccl_device float3 volume_phase_eval(const ShaderData *sd,
-                                    const ShaderClosure *sc,
+ccl_device float3 volume_phase_eval(METAL_ASQ_DEVICE const ShaderData *sd,
+                                    METAL_ASQ_THREAD const ShaderClosure *sc,
                                     float3 omega_in,
-                                    float *pdf)
+                                    METAL_ASQ_THREAD float *pdf)
 {
   kernel_assert(sc->type == CLOSURE_VOLUME_HENYEY_GREENSTEIN_ID);
 
   return volume_henyey_greenstein_eval_phase(sc, sd->I, omega_in, pdf);
 }
 
-ccl_device int volume_phase_sample(const ShaderData *sd,
-                                   const ShaderClosure *sc,
-                                   float randu,
+ccl_device int volume_phase_sample(METAL_ASQ_DEVICE const ShaderData *sd,
+                                   METAL_ASQ_THREAD const ShaderClosure *sc,
+                                   METAL_ASQ_THREAD float randu,
                                    float randv,
-                                   float3 *eval,
-                                   float3 *omega_in,
-                                   differential3 *domega_in,
-                                   float *pdf)
+                                   METAL_ASQ_THREAD float3 *eval,
+                                   METAL_ASQ_THREAD float3 *omega_in,
+                                   METAL_ASQ_THREAD differential3 *domega_in,
+                                   METAL_ASQ_THREAD float *pdf)
 {
   int label;
 
@@ -211,7 +220,7 @@ ccl_device float volume_channel_get(float3 value, int channel)
   return (channel == 0) ? value.x : ((channel == 1) ? value.y : value.z);
 }
 
-ccl_device int volume_sample_channel(float3 albedo, float3 throughput, float rand, float3 *pdf)
+ccl_device int volume_sample_channel(float3 albedo, float3 throughput, float rand, METAL_ASQ_THREAD float3 *pdf)
 {
   /* Sample color channel proportional to throughput and single scattering
    * albedo, to significantly reduce noise with many bounce, following:

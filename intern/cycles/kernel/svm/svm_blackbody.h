@@ -30,13 +30,22 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 CCL_NAMESPACE_BEGIN
 
 /* Blackbody Node */
 
-ccl_device void svm_node_blackbody(const KernelGlobals *kg,
-                                   ShaderData *sd,
-                                   float *stack,
+ccl_device void svm_node_blackbody(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                   METAL_ASQ_DEVICE ShaderData *sd,
+                                   METAL_ASQ_THREAD float *stack,
                                    uint temperature_offset,
                                    uint col_offset)
 {

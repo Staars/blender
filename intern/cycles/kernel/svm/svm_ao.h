@@ -14,6 +14,15 @@
  * limitations under the License.
  */
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 #include "kernel/bvh/bvh.h"
 
 CCL_NAMESPACE_BEGIN
@@ -21,7 +30,7 @@ CCL_NAMESPACE_BEGIN
 #ifdef __SHADER_RAYTRACE__
 
 ccl_device float svm_ao(INTEGRATOR_STATE_CONST_ARGS,
-                        ShaderData *sd,
+                        METAL_ASQ_DEVICE ShaderData *sd,
                         float3 N,
                         float max_dist,
                         int num_samples,
@@ -85,15 +94,15 @@ ccl_device float svm_ao(INTEGRATOR_STATE_CONST_ARGS,
   return ((float)unoccluded) / num_samples;
 }
 
-ccl_device void svm_node_ao(INTEGRATOR_STATE_CONST_ARGS, ShaderData *sd, float *stack, uint4 node)
+ccl_device void svm_node_ao(INTEGRATOR_STATE_CONST_ARGS, METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint4 node)
 {
 #  if defined(__KERNEL_OPTIX__)
   optixDirectCall<void>(0, INTEGRATOR_STATE_PASS, sd, stack, node);
 }
 
 extern "C" __device__ void __direct_callable__svm_node_ao(INTEGRATOR_STATE_CONST_ARGS,
-                                                          ShaderData *sd,
-                                                          float *stack,
+                                                          METAL_ASQ_DEVICE ShaderData *sd,
+                                                          METAL_ASQ_THREAD float *stack,
                                                           uint4 node)
 {
 #  endif

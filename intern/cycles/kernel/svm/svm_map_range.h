@@ -14,6 +14,15 @@
  * limitations under the License.
  */
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 CCL_NAMESPACE_BEGIN
 
 /* Map Range Node */
@@ -24,13 +33,13 @@ ccl_device_inline float smootherstep(float edge0, float edge1, float x)
   return x * x * x * (x * (x * 6.0f - 15.0f) + 10.0f);
 }
 
-ccl_device void svm_node_map_range(const KernelGlobals *kg,
-                                   ShaderData *sd,
-                                   float *stack,
+ccl_device void svm_node_map_range(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                   METAL_ASQ_DEVICE ShaderData *sd,
+                                   METAL_ASQ_THREAD float *stack,
                                    uint value_stack_offset,
                                    uint parameters_stack_offsets,
                                    uint results_stack_offsets,
-                                   int *offset)
+                                   METAL_ASQ_THREAD int *offset)
 {
   uint from_min_stack_offset, from_max_stack_offset, to_min_stack_offset, to_max_stack_offset;
   uint type_stack_offset, steps_stack_offset, result_stack_offset;

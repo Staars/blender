@@ -14,6 +14,14 @@
  * limitations under the License.
  */
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
 CCL_NAMESPACE_BEGIN
 
 /* Checker */
@@ -32,9 +40,9 @@ ccl_device float svm_checker(float3 p)
   return ((xi % 2 == yi % 2) == (zi % 2)) ? 1.0f : 0.0f;
 }
 
-ccl_device void svm_node_tex_checker(const KernelGlobals *kg,
-                                     ShaderData *sd,
-                                     float *stack,
+ccl_device void svm_node_tex_checker(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                     METAL_ASQ_DEVICE ShaderData *sd,
+                                     METAL_ASQ_THREAD float *stack,
                                      uint4 node)
 {
   uint co_offset, color1_offset, color2_offset, scale_offset;

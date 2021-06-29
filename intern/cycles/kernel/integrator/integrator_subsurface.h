@@ -16,6 +16,15 @@
 
 #pragma once
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 #include "kernel/kernel_path_state.h"
 #include "kernel/kernel_projection.h"
 #include "kernel/kernel_shader.h"
@@ -59,11 +68,11 @@ ccl_device float3 subsurface_color_pow(float3 color, float exponent)
   return color;
 }
 
-ccl_device void subsurface_color_bump_blur(const KernelGlobals *kg,
-                                           ShaderData *sd,
-                                           ccl_addr_space PathState *state,
-                                           float3 *eval,
-                                           float3 *N)
+ccl_device void subsurface_color_bump_blur(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                           METAL_ASQ_DEVICE ShaderData *sd,
+                                           METAL_ASQ_THREAD ccl_addr_space PathState *state,
+                                           METAL_ASQ_THREAD float3 *eval,
+                                           METAL_ASQ_THREAD float3 *N)
 {
   /* average color and texture blur at outgoing point */
   float texture_blur;
@@ -91,7 +100,7 @@ ccl_device void subsurface_color_bump_blur(const KernelGlobals *kg,
 }
 #  endif
 
-ccl_device bool subsurface_bounce(INTEGRATOR_STATE_ARGS, ShaderData *sd, const ShaderClosure *sc)
+ccl_device bool subsurface_bounce(INTEGRATOR_STATE_ARGS, METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD const ShaderClosure *sc)
 {
   /* We should never have two consecutive BSSRDF bounces, the second one should
    * be converted to a diffuse BSDF to avoid this. */
@@ -127,7 +136,7 @@ ccl_device bool subsurface_bounce(INTEGRATOR_STATE_ARGS, ShaderData *sd, const S
   return true;
 }
 
-ccl_device void subsurface_shader_data_setup(INTEGRATOR_STATE_ARGS, ShaderData *sd)
+ccl_device void subsurface_shader_data_setup(INTEGRATOR_STATE_ARGS, METAL_ASQ_DEVICE ShaderData *sd)
 {
   /* Get bump mapped normal from shader evaluation at exit point. */
   float3 N = sd->N;
@@ -181,8 +190,8 @@ ccl_device void subsurface_shader_data_setup(INTEGRATOR_STATE_ARGS, ShaderData *
 
 ccl_device void subsurface_random_walk_remap(const float A,
                                              const float d,
-                                             float *sigma_t,
-                                             float *alpha)
+                                             METAL_ASQ_THREAD float *sigma_t,
+                                             METAL_ASQ_THREAD float *alpha)
 {
   /* Compute attenuation and scattering coefficients from albedo. */
   *alpha = 1.0f - expf(A * (-5.09406f + A * (2.61188f - A * 4.31805f)));
@@ -192,7 +201,7 @@ ccl_device void subsurface_random_walk_remap(const float A,
 }
 
 ccl_device void subsurface_random_walk_coefficients(
-    const float3 albedo, const float3 radius, float3 *sigma_t, float3 *alpha, float3 *throughput)
+    const float3 albedo, const float3 radius, METAL_ASQ_THREAD float3 *sigma_t, METAL_ASQ_THREAD float3 *alpha, METAL_ASQ_THREAD float3 *throughput)
 {
   float sigma_t_x, sigma_t_y, sigma_t_z;
   float alpha_x, alpha_y, alpha_z;
@@ -259,7 +268,7 @@ ccl_device_forceinline float3 direction_from_cosine(float3 D, float cos_theta, f
 ccl_device_forceinline float3 subsurface_random_walk_pdf(float3 sigma_t,
                                                          float t,
                                                          bool hit,
-                                                         float3 *transmittance)
+                                                         METAL_ASQ_THREAD float3 *transmittance)
 {
   float3 T = volume_color_transmittance(sigma_t, t);
   if (transmittance) {

@@ -13,16 +13,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
 
 CCL_NAMESPACE_BEGIN
 
-ccl_device void svm_node_combine_hsv(const KernelGlobals *kg,
-                                     ShaderData *sd,
-                                     float *stack,
+ccl_device void svm_node_combine_hsv(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                     METAL_ASQ_DEVICE ShaderData *sd,
+                                     METAL_ASQ_THREAD float *stack,
                                      uint hue_in,
                                      uint saturation_in,
                                      uint value_in,
-                                     int *offset)
+                                     METAL_ASQ_THREAD int *offset)
 {
   uint4 node1 = read_node(kg, offset);
   uint color_out = node1.y;
@@ -38,13 +46,13 @@ ccl_device void svm_node_combine_hsv(const KernelGlobals *kg,
     stack_store_float3(stack, color_out, color);
 }
 
-ccl_device void svm_node_separate_hsv(const KernelGlobals *kg,
-                                      ShaderData *sd,
-                                      float *stack,
+ccl_device void svm_node_separate_hsv(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                      METAL_ASQ_DEVICE ShaderData *sd,
+                                      METAL_ASQ_THREAD float *stack,
                                       uint color_in,
                                       uint hue_out,
                                       uint saturation_out,
-                                      int *offset)
+                                      METAL_ASQ_THREAD int *offset)
 {
   uint4 node1 = read_node(kg, offset);
   uint value_out = node1.y;

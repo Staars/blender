@@ -14,17 +14,26 @@
  * limitations under the License.
  */
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 CCL_NAMESPACE_BEGIN
 
 /* Mapping Node */
 
-ccl_device void svm_node_mapping(const KernelGlobals *kg,
-                                 ShaderData *sd,
-                                 float *stack,
+ccl_device void svm_node_mapping(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                 METAL_ASQ_DEVICE ShaderData *sd,
+                                 METAL_ASQ_THREAD float *stack,
                                  uint type,
                                  uint inputs_stack_offsets,
                                  uint result_stack_offset,
-                                 int *offset)
+                                 METAL_ASQ_THREAD int *offset)
 {
   uint vector_stack_offset, location_stack_offset, rotation_stack_offset, scale_stack_offset;
   svm_unpack_node_uchar4(inputs_stack_offsets,
@@ -44,12 +53,12 @@ ccl_device void svm_node_mapping(const KernelGlobals *kg,
 
 /* Texture Mapping */
 
-ccl_device void svm_node_texture_mapping(const KernelGlobals *kg,
-                                         ShaderData *sd,
-                                         float *stack,
+ccl_device void svm_node_texture_mapping(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                         METAL_ASQ_DEVICE ShaderData *sd,
+                                         METAL_ASQ_THREAD float *stack,
                                          uint vec_offset,
                                          uint out_offset,
-                                         int *offset)
+                                         METAL_ASQ_THREAD int *offset)
 {
   float3 v = stack_load_float3(stack, vec_offset);
 
@@ -62,12 +71,12 @@ ccl_device void svm_node_texture_mapping(const KernelGlobals *kg,
   stack_store_float3(stack, out_offset, r);
 }
 
-ccl_device void svm_node_min_max(const KernelGlobals *kg,
-                                 ShaderData *sd,
-                                 float *stack,
+ccl_device void svm_node_min_max(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                 METAL_ASQ_DEVICE ShaderData *sd,
+                                 METAL_ASQ_THREAD float *stack,
                                  uint vec_offset,
                                  uint out_offset,
-                                 int *offset)
+                                 METAL_ASQ_THREAD int *offset)
 {
   float3 v = stack_load_float3(stack, vec_offset);
 
