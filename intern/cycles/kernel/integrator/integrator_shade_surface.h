@@ -16,6 +16,15 @@
 
 #pragma once
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 #include "kernel/kernel_accumulate.h"
 #include "kernel/kernel_emission.h"
 #include "kernel/kernel_light.h"
@@ -29,7 +38,7 @@
 CCL_NAMESPACE_BEGIN
 
 ccl_device_forceinline void integrate_surface_shader_setup(INTEGRATOR_STATE_CONST_ARGS,
-                                                           ShaderData *sd)
+                                                           METAL_ASQ_DEVICE ShaderData *sd)
 {
   Intersection isect ccl_optional_struct_init;
   integrator_state_read_isect(INTEGRATOR_STATE_PASS, &isect);
@@ -42,7 +51,7 @@ ccl_device_forceinline void integrate_surface_shader_setup(INTEGRATOR_STATE_CONS
 
 #ifdef __HOLDOUT__
 ccl_device_forceinline bool integrate_surface_holdout(INTEGRATOR_STATE_CONST_ARGS,
-                                                      ShaderData *sd,
+                                                      METAL_ASQ_DEVICE ShaderData *sd,
                                                       ccl_global float *ccl_restrict render_buffer)
 {
   /* Write holdout transparency to render buffer and stop if fully holdout. */
@@ -67,7 +76,7 @@ ccl_device_forceinline bool integrate_surface_holdout(INTEGRATOR_STATE_CONST_ARG
 
 #ifdef __EMISSION__
 ccl_device_forceinline void integrate_surface_emission(INTEGRATOR_STATE_CONST_ARGS,
-                                                       const ShaderData *sd,
+                                                       METAL_ASQ_DEVICE const ShaderData *sd,
                                                        ccl_global float *ccl_restrict
                                                            render_buffer)
 {
@@ -103,8 +112,8 @@ ccl_device_forceinline void integrate_surface_emission(INTEGRATOR_STATE_CONST_AR
 /* Path tracing: sample point on light and evaluate light shader, then
  * queue shadow ray to be traced. */
 ccl_device_forceinline void integrate_surface_direct_light(INTEGRATOR_STATE_ARGS,
-                                                           ShaderData *sd,
-                                                           const RNGState *rng_state)
+                                                           METAL_ASQ_DEVICE ShaderData *sd,
+                                                           METAL_ASQ_THREAD const RNGState *rng_state)
 {
   /* Test if there is a light or BSDF that needs direct light. */
   if (!(kernel_data.integrator.use_direct_light && (sd->flag & SD_BSDF_HAS_EVAL))) {
@@ -193,8 +202,8 @@ ccl_device_forceinline void integrate_surface_direct_light(INTEGRATOR_STATE_ARGS
 
 /* Path tracing: bounce off or through surface with new direction. */
 ccl_device_forceinline int integrate_surface_bsdf_bssrdf_bounce(INTEGRATOR_STATE_ARGS,
-                                                                ShaderData *sd,
-                                                                const RNGState *rng_state)
+                                                                METAL_ASQ_DEVICE ShaderData *sd,
+                                                                METAL_ASQ_THREAD const RNGState *rng_state)
 {
   /* Sample BSDF or BSSRDF. */
   if (!(sd->flag & (SD_BSDF | SD_BSSRDF))) {
@@ -261,7 +270,7 @@ ccl_device_forceinline int integrate_surface_bsdf_bssrdf_bounce(INTEGRATOR_STATE
 
 #ifdef __VOLUME__
 ccl_device_forceinline bool integrate_surface_volume_only_bounce(INTEGRATOR_STATE_ARGS,
-                                                                 ShaderData *sd)
+                                                                 METAL_ASQ_DEVICE ShaderData *sd)
 {
   if (!path_state_volume_next(INTEGRATOR_STATE_PASS)) {
     return LABEL_NONE;

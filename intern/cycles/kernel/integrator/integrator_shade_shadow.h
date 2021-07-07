@@ -16,6 +16,15 @@
 
 #pragma once
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 #include "kernel/integrator/integrator_shade_volume.h"
 #include "kernel/integrator/integrator_volume_stack.h"
 
@@ -62,7 +71,7 @@ ccl_device_inline float3 integrate_transparent_surface_shadow(INTEGRATOR_STATE_A
 ccl_device_inline void integrate_transparent_volume_shadow(INTEGRATOR_STATE_ARGS,
                                                            const int hit,
                                                            const int num_recorded_hits,
-                                                           float3 *ccl_restrict throughput)
+                                                           METAL_ASQ_THREAD float3 *ccl_restrict throughput)
 {
   /* TODO: deduplicate with surface, or does it not matter for memory usage? */
   ShaderDataTinyStorage shadow_sd_storage;

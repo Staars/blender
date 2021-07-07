@@ -16,6 +16,14 @@
 
 #pragma once
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
 #include "kernel/integrator/integrator_intersect_closest.h"
 #include "kernel/integrator/integrator_volume_stack.h"
 
@@ -50,8 +58,8 @@ typedef struct VolumeShaderCoefficients {
 
 /* Evaluate shader to get extinction coefficient at P. */
 ccl_device_inline bool shadow_volume_shader_sample(INTEGRATOR_STATE_ARGS,
-                                                   ShaderData *ccl_restrict sd,
-                                                   float3 *ccl_restrict extinction)
+                                                   METAL_ASQ_DEVICE ShaderData *ccl_restrict sd,
+                                                   METAL_ASQ_THREAD float3 *ccl_restrict extinction)
 {
   shader_eval_volume(INTEGRATOR_STATE_PASS, sd, PATH_RAY_SHADOW, [=](const int i) {
     return integrator_state_read_shadow_volume_stack(INTEGRATOR_STATE_PASS, i);
@@ -68,8 +76,8 @@ ccl_device_inline bool shadow_volume_shader_sample(INTEGRATOR_STATE_ARGS,
 
 /* Evaluate shader to get absorption, scattering and emission at P. */
 ccl_device_inline bool volume_shader_sample(INTEGRATOR_STATE_ARGS,
-                                            ShaderData *ccl_restrict sd,
-                                            VolumeShaderCoefficients *coeff)
+                                            METAL_ASQ_DEVICE ShaderData *ccl_restrict sd,
+                                            METAL_ASQ_THREAD VolumeShaderCoefficients *coeff)
 {
   const int path_flag = INTEGRATOR_STATE(path, flag);
   shader_eval_volume(INTEGRATOR_STATE_PASS, sd, path_flag, [=](const int i) {
@@ -102,14 +110,14 @@ ccl_device_inline bool volume_shader_sample(INTEGRATOR_STATE_ARGS,
   return true;
 }
 
-ccl_device_forceinline void volume_step_init(const KernelGlobals *kg,
-                                             const RNGState *rng_state,
+ccl_device_forceinline void volume_step_init(METAL_ASQ_DEVICE const KernelGlobals *kg,
+                                             METAL_ASQ_THREAD const RNGState *rng_state,
                                              const float object_step_size,
                                              float t,
-                                             float *step_size,
-                                             float *step_shade_offset,
-                                             float *steps_offset,
-                                             int *max_steps)
+                                             METAL_ASQ_THREAD float *step_size,
+                                             METAL_ASQ_THREAD float *step_shade_offset,
+                                             METAL_ASQ_THREAD float *steps_offset,
+                                             METAL_ASQ_THREAD int *max_steps)
 {
   if (object_step_size == FLT_MAX) {
     /* Homogeneous volume. */
@@ -149,9 +157,9 @@ ccl_device_forceinline void volume_step_init(const KernelGlobals *kg,
 /* homogeneous volume: assume shader evaluation at the starts gives
  * the extinction coefficient for the entire line segment */
 ccl_device void volume_shadow_homogeneous(INTEGRATOR_STATE_ARGS,
-                                          Ray *ccl_restrict ray,
-                                          ShaderData *ccl_restrict sd,
-                                          float3 *ccl_restrict throughput)
+                                          METAL_ASQ_THREAD Ray *ccl_restrict ray,
+                                          METAL_ASQ_DEVICE ShaderData *ccl_restrict sd,
+                                          METAL_ASQ_THREAD float3 *ccl_restrict throughput)
 {
   float3 sigma_t = zero_float3();
 
@@ -164,9 +172,9 @@ ccl_device void volume_shadow_homogeneous(INTEGRATOR_STATE_ARGS,
 /* heterogeneous volume: integrate stepping through the volume until we
  * reach the end, get absorbed entirely, or run out of iterations */
 ccl_device void volume_shadow_heterogeneous(INTEGRATOR_STATE_ARGS,
-                                            Ray *ccl_restrict ray,
-                                            ShaderData *ccl_restrict sd,
-                                            float3 *ccl_restrict throughput,
+                                            METAL_ASQ_THREAD Ray *ccl_restrict ray,
+                                            METAL_ASQ_DEVICE ShaderData *ccl_restrict sd,
+                                            METAL_ASQ_THREAD float3 *ccl_restrict throughput,
                                             const float object_step_size)
 {
   /* Load random number state. */
@@ -236,7 +244,7 @@ ccl_device void volume_shadow_heterogeneous(INTEGRATOR_STATE_ARGS,
 /* Equi-angular sampling as in:
  * "Importance Sampling Techniques for Path Tracing in Participating Media" */
 
-ccl_device float volume_equiangular_sample(Ray *ray, float3 light_P, float xi, float *pdf)
+ccl_device float volume_equiangular_sample(METAL_ASQ_THREAD Ray *ray, float3 light_P, float xi, METAL_ASQ_THREAD float *pdf)
 {
   float t = ray->t;
 
@@ -258,7 +266,7 @@ ccl_device float volume_equiangular_sample(Ray *ray, float3 light_P, float xi, f
   return min(t, delta + t_); /* min is only for float precision errors */
 }
 
-ccl_device float volume_equiangular_pdf(Ray *ray, float3 light_P, float sample_t)
+ccl_device float volume_equiangular_pdf(METAL_ASQ_THREAD Ray *ray, float3 light_P, float sample_t)
 {
   float delta = dot((light_P - ray->P), ray->D);
   float D = safe_sqrtf(len_squared(light_P - ray->P) - delta * delta);
@@ -283,7 +291,7 @@ ccl_device float volume_equiangular_pdf(Ray *ray, float3 light_P, float sample_t
 /* Distance sampling */
 
 ccl_device float volume_distance_sample(
-    float max_t, float3 sigma_t, int channel, float xi, float3 *transmittance, float3 *pdf)
+    float max_t, float3 sigma_t, int channel, float xi, METAL_ASQ_THREAD float3 *transmittance, METAL_ASQ_THREAD float3 *pdf)
 {
   /* xi is [0, 1[ so log(0) should never happen, division by zero is
    * avoided because sample_sigma_t > 0 when SD_SCATTER is set */
@@ -313,7 +321,7 @@ ccl_device float3 volume_distance_pdf(float max_t, float3 sigma_t, float sample_
 
 /* Emission */
 
-ccl_device float3 volume_emission_integrate(VolumeShaderCoefficients *coeff,
+ccl_device float3 volume_emission_integrate(METAL_ASQ_THREAD VolumeShaderCoefficients *coeff,
                                             int closure_flag,
                                             float3 transmittance,
                                             float t)
@@ -344,10 +352,10 @@ ccl_device float3 volume_emission_integrate(VolumeShaderCoefficients *coeff,
  * the volume shading coefficient for the entire line segment */
 ccl_device VolumeIntegrateResult
 volume_integrate_homogeneous(INTEGRATOR_STATE_ARGS,
-                             Ray *ccl_restrict ray,
-                             ShaderData *ccl_restrict sd,
-                             ccl_addr_space float3 *ccl_restrict throughput,
-                             const RNGState *rng_state,
+                             METAL_ASQ_THREAD Ray *ccl_restrict ray,
+                             METAL_ASQ_DEVICE ShaderData *ccl_restrict sd,
+                             METAL_ASQ_THREAD ccl_addr_space float3 *ccl_restrict throughput,
+                             METAL_ASQ_THREAD const RNGState *rng_state,
                              const bool probalistic_scatter,
                              ccl_global float *ccl_restrict render_buffer)
 {
@@ -454,10 +462,10 @@ volume_integrate_homogeneous(INTEGRATOR_STATE_ARGS,
  * for path tracing where we don't want to branch. */
 ccl_device VolumeIntegrateResult
 volume_integrate_heterogeneous(INTEGRATOR_STATE_ARGS,
-                               Ray *ccl_restrict ray,
-                               ShaderData *ccl_restrict sd,
-                               ccl_addr_space float3 *ccl_restrict throughput,
-                               const RNGState *rng_state,
+                               METAL_ASQ_THREAD Ray *ccl_restrict ray,
+                               METAL_ASQ_DEVICE ShaderData *ccl_restrict sd,
+                               METAL_ASQ_THREAD ccl_addr_space float3 *ccl_restrict throughput,
+                               METAL_ASQ_THREAD const RNGState *rng_state,
                                ccl_global float *ccl_restrict render_buffer,
                                const float object_step_size)
 {
@@ -600,8 +608,8 @@ volume_integrate_heterogeneous(INTEGRATOR_STATE_ARGS,
 /* Path tracing: sample point on light and evaluate light shader, then
  * queue shadow ray to be traced. */
 ccl_device_forceinline void integrate_volume_direct_light(INTEGRATOR_STATE_ARGS,
-                                                          ShaderData *sd,
-                                                          const RNGState *rng_state)
+                                                          METAL_ASQ_DEVICE ShaderData *sd,
+                                                          METAL_ASQ_THREAD const RNGState *rng_state)
 {
   /* Test if there is a light or BSDF that needs direct light. */
   if (!kernel_data.integrator.use_direct_light) {
@@ -686,8 +694,8 @@ ccl_device_forceinline void integrate_volume_direct_light(INTEGRATOR_STATE_ARGS,
 
 /* Path tracing: scatter in new direction using phase function. */
 ccl_device_forceinline bool integrate_volume_phase_scatter(INTEGRATOR_STATE_ARGS,
-                                                           ShaderData *sd,
-                                                           const RNGState *rng_state)
+                                                           METAL_ASQ_DEVICE ShaderData *sd,
+                                                           METAL_ASQ_THREAD const RNGState *rng_state)
 {
   float phase_u, phase_v;
   path_state_rng_2D(kg, rng_state, PRNG_BSDF_U, &phase_u, &phase_v);
@@ -736,7 +744,7 @@ ccl_device_forceinline bool integrate_volume_phase_scatter(INTEGRATOR_STATE_ARGS
  * between the endpoints. distance sampling is used to decide if we will
  * scatter or not. */
 ccl_device VolumeIntegrateResult volume_integrate(INTEGRATOR_STATE_ARGS,
-                                                  Ray *ccl_restrict ray,
+                                                  METAL_ASQ_THREAD Ray *ccl_restrict ray,
                                                   ccl_global float *ccl_restrict render_buffer)
 {
   ShaderData sd;

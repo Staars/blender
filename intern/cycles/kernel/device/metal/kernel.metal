@@ -16,7 +16,6 @@
 
 /* METAL kernel entry points */
 
-#ifdef __APPLE__
 #  include "kernel/device/metal/compat.h"
 #  include "kernel/device/metal/globals.h"
 //#  include "kernel/device/metal/image.h"
@@ -96,6 +95,3 @@ kernel void kernel_metal_integrator_init_from_camera(threadgroup int *path_index
     integrator_init_from_camera(NULL, path_index, tile, render_buffer, x, y, sample);
   }
 }
-
-
-#endif /* __APPLE__ */

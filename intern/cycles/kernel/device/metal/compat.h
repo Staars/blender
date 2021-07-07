@@ -203,10 +203,10 @@ using metal::clz;
 /* Texture types to be compatible with CUDA textures. These are really just
  * simple arrays and after inlining fetch hopefully revert to being a simple
  * pointer lookup. */
-template<typename T> struct texture {
-  const T thread &fetch(int index) const
-  {
-//    kernel_assert(index >= 0 && index < width);
-    return data[index];
-  }
+//template<typename T> struct texture {
+//  const T thread &fetch(int index) const
+//  {
+////    kernel_assert(index >= 0 && index < width);
+//    return data[index];
+//  }
 

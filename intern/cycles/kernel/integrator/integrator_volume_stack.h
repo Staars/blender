@@ -16,6 +16,15 @@
 
 #pragma once
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 CCL_NAMESPACE_BEGIN
 
 #if 0
@@ -25,7 +34,7 @@ CCL_NAMESPACE_BEGIN
  * is inside of. */
 
 ccl_device void volume_stack_init(INTEGRATOR_STATE_ARGS,
-                                  const ShaderData *stack_sd,
+                                  METAL_ASQ_DEVICE const ShaderData *stack_sd,
                                   ccl_addr_space const PathState *state,
                                   ccl_addr_space const Ray *ray,
                                   ccl_addr_space VolumeStack *stack)
@@ -169,7 +178,7 @@ ccl_device void volume_stack_init(INTEGRATOR_STATE_ARGS,
 
 template<typename StackReadOp, typename StackWriteOp>
 ccl_device void volume_stack_enter_exit(INTEGRATOR_STATE_ARGS,
-                                        const ShaderData *sd,
+                                        METAL_ASQ_DEVICE const ShaderData *sd,
                                         StackReadOp stack_read,
                                         StackWriteOp stack_write)
 {
@@ -228,7 +237,7 @@ ccl_device void volume_stack_enter_exit(INTEGRATOR_STATE_ARGS,
   }
 }
 
-ccl_device void volume_stack_enter_exit(INTEGRATOR_STATE_ARGS, const ShaderData *sd)
+ccl_device void volume_stack_enter_exit(INTEGRATOR_STATE_ARGS, METAL_ASQ_DEVICE const ShaderData *sd)
 {
   volume_stack_enter_exit(
       INTEGRATOR_STATE_PASS,
@@ -239,7 +248,7 @@ ccl_device void volume_stack_enter_exit(INTEGRATOR_STATE_ARGS, const ShaderData 
       });
 }
 
-ccl_device void shadow_volume_stack_enter_exit(INTEGRATOR_STATE_ARGS, const ShaderData *sd)
+ccl_device void shadow_volume_stack_enter_exit(INTEGRATOR_STATE_ARGS, METAL_ASQ_DEVICE const ShaderData *sd)
 {
   volume_stack_enter_exit(
       INTEGRATOR_STATE_PASS,

@@ -16,6 +16,15 @@
 
 #pragma once
 
+#if defined __KERNEL_METAL__
+#define METAL_ASQ_DEVICE device
+#define METAL_ASQ_THREAD thread
+#else
+#define METAL_ASQ_DEVICE
+#define METAL_ASQ_THREAD
+#endif
+
+
 #include "kernel/geom/geom.h"
 
 #include "kernel/kernel_id_passes.h"
@@ -36,7 +45,7 @@ ccl_device_forceinline ccl_global float *kernel_pass_pixel_render_buffer(
 #ifdef __DENOISING_FEATURES__
 
 ccl_device_inline void kernel_write_denoising_features(
-    INTEGRATOR_STATE_ARGS, const ShaderData *sd, ccl_global float *ccl_restrict render_buffer)
+    INTEGRATOR_STATE_ARGS, METAL_ASQ_DEVICE const ShaderData *sd, ccl_global float *ccl_restrict render_buffer)
 {
   if (!(INTEGRATOR_STATE(path, flag) & PATH_RAY_DENOISING_FEATURES)) {
     return;
@@ -128,7 +137,7 @@ ccl_device_inline void kernel_write_denoising_features(
 
 /* Write shadow catcher passes on a bounce from the shadow catcher object. */
 ccl_device_inline void kernel_write_shadow_catcher_bounce_data(
-    INTEGRATOR_STATE_ARGS, const ShaderData *sd, ccl_global float *ccl_restrict render_buffer)
+    INTEGRATOR_STATE_ARGS, METAL_ASQ_DEVICE const ShaderData *sd, ccl_global float *ccl_restrict render_buffer)
 {
   if (!kernel_data.integrator.has_shadow_catcher) {
     return;
@@ -159,7 +168,7 @@ ccl_device_inline void kernel_write_shadow_catcher_bounce_data(
 #  define WRITE_ID_SLOT(buffer, depth, id, matte_weight, name) \
     kernel_write_id_pass_cpu(buffer, depth * 2, id, matte_weight, kg->coverage_##name)
 ccl_device_inline size_t kernel_write_id_pass_cpu(
-    float *ccl_restrict buffer, size_t depth, float id, float matte_weight, CoverageMap *map)
+                                                  METAL_ASQ_THREAD float *ccl_restrict buffer, size_t depth, float id, float matte_weight, METAL_ASQ_THREAD CoverageMap *map)
 {
   if (map) {
     (*map)[id] += matte_weight;
@@ -179,7 +188,7 @@ ccl_device_inline size_t kernel_write_id_slots_gpu(ccl_global float *ccl_restric
 }
 
 ccl_device_inline void kernel_write_data_passes(INTEGRATOR_STATE_ARGS,
-                                                const ShaderData *sd,
+                                                METAL_ASQ_DEVICE const ShaderData *sd,
                                                 ccl_global float *ccl_restrict render_buffer)
 {
 #ifdef __PASSES__
@@ -310,9 +319,9 @@ ccl_device_inline void kernel_write_data_passes(INTEGRATOR_STATE_ARGS,
 }
 
 #if 0
-ccl_device_inline void kernel_write_light_passes(const KernelGlobals *ccl_restrict kg,
+ccl_device_inline void kernel_write_light_passes(METAL_ASQ_DEVICE const KernelGlobals *ccl_restrict kg,
                                                  ccl_global float *ccl_restrict buffer,
-                                                 PathRadiance *L)
+                                                 METAL_ASQ_THREAD PathRadiance *L)
 {
 #  ifdef __PASSES__
   int light_flag = kernel_data.film.light_pass_flag;
@@ -327,10 +336,10 @@ ccl_device_inline void kernel_write_light_passes(const KernelGlobals *ccl_restri
 #endif
 
 #if 0
-ccl_device_inline void kernel_write_result(const KernelGlobals *ccl_restrict kg,
+ccl_device_inline void kernel_write_result(METAL_ASQ_DEVICE const KernelGlobals *ccl_restrict kg,
                                            ccl_global float *ccl_restrict buffer,
                                            int sample,
-                                           PathRadiance *L)
+                                           METAL_ASQ_THREAD PathRadiance *L)
 {
   PROFILING_INIT(kg, PROFILING_WRITE_RESULT);
   PROFILING_OBJECT(PRIM_NONE);

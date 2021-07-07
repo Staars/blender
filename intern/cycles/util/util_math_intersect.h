@@ -187,9 +187,9 @@ ccl_device_forceinline bool ray_triangle_intersect(float3 ray_P,
   }
 
   /* Perform depth test. */
-  const float T = dot3(v0, Ng);
+  const float t = dot3(v0, Ng);
   const int sign_den = (__float_as_int(den) & 0x80000000);
-  const float sign_T = xor_signmask(T, sign_den);
+  const float sign_T = xor_signmask(t, sign_den);
   if ((sign_T < 0.0f) || (sign_T > ray_t * xor_signmask(den, sign_den))) {
     return false;
   }
@@ -203,7 +203,7 @@ ccl_device_forceinline bool ray_triangle_intersect(float3 ray_P,
   *isect_u = U * inv_den;
   *isect_v = V * inv_den;
 #endif
-  *isect_t = T * inv_den;
+  *isect_t = t * inv_den;
   return true;
 
 #undef dot3
