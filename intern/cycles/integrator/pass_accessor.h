@@ -76,6 +76,10 @@ class PassAccessor {
     /* Offset in pixels from the beginning of pixels storage.
      * Allows to get pixels of render buffer into a partial slice of the destination. */
     int offset = 0;
+
+    /* Number of floats per pixel. When zero is the same as `num_components`.
+     * NOTE: Is ignored for half4 destination. */
+    int pixel_stride = 0;
   };
 
   class Source {

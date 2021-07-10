@@ -65,6 +65,14 @@ OIDNDenoiser::~OIDNDenoiser()
    * per the OIDN denoiser header. */
 }
 
+#ifdef WITH_OPENIMAGEDENOISE
+static bool oidn_progress_monitor_function(void *user_ptr, double /*n*/)
+{
+  OIDNDenoiser *oidn_denoiser = reinterpret_cast<OIDNDenoiser *>(user_ptr);
+  return !oidn_denoiser->is_cancelled();
+}
+#endif
+
 bool OIDNDenoiser::load_kernels(Progress *progress)
 {
   if (!Denoiser::load_kernels(progress)) {
@@ -92,6 +100,8 @@ bool OIDNDenoiser::load_kernels(Progress *progress)
     state_->oidn_filter = state_->oidn_device.newFilter("RT");
     state_->oidn_filter.set("hdr", true);
     state_->oidn_filter.set("srgb", false);
+
+    state_->oidn_filter.setProgressMonitorFunction(oidn_progress_monitor_function, this);
   }
 
   state_->use_pass_albedo = params_.use_pass_albedo;
@@ -104,6 +114,7 @@ bool OIDNDenoiser::load_kernels(Progress *progress)
 }
 
 #ifdef WITH_OPENIMAGEDENOISE
+
 class OIDNPass {
  public:
   OIDNPass() = default;
@@ -119,6 +130,12 @@ class OIDNPass {
 
     const PassInfo pass_info = Pass::get_info(type);
     use_compositing = pass_info.use_compositing;
+    use_denoising_albedo = pass_info.use_denoising_albedo;
+  }
+
+  inline operator bool() const
+  {
+    return name[0] != '\0';
   }
 
   /* Name of an image which will be passed to the OIDN library.
@@ -128,6 +145,8 @@ class OIDNPass {
 
   PassType type = PASS_NONE;
   PassMode mode = PassMode::NOISY;
+  bool use_compositing = false;
+  bool use_denoising_albedo = true;
 
   /* Offset of beginning of this pass in the render buffers. */
   int offset = -1;
@@ -141,13 +160,8 @@ class OIDNPass {
    * outside of generic pass handling. */
   bool need_scale = false;
 
-  bool use_compositing = false;
-
   /* For the scaled passes, the data which holds values of scaled pixels. */
   array<float> scaled_buffer;
-
-  /* For the in-place usable passes denotes whether the underlying data has been scaled. */
-  bool is_scaled = false;
 };
 
 class OIDNDenoiseContext {
@@ -174,36 +188,43 @@ class OIDNDenoiseContext {
 
     if (denoise_params_.use_pass_normal) {
       oidn_normal_pass_ = OIDNPass(buffer_params_, "normal", PASS_DENOISING_NORMAL);
-      set_pass(oidn_normal_pass_);
     }
   }
 
-  void denoise(const PassType pass_type)
+  bool need_denoising() const
   {
-    /* Add input color image. */
+    if (buffer_params_.width == 0 && buffer_params_.height == 0) {
+      return false;
+    }
+
+    return true;
+  }
+
+  /* Make the guiding passes available by a sequential denoising of various passes. */
+  void read_guiding_passes()
+  {
+    read_guiding_pass(oidn_albedo_pass_);
+    read_guiding_pass(oidn_normal_pass_);
+  }
+
+  void denoise_pass(const PassType pass_type)
+  {
     OIDNPass oidn_color_pass(buffer_params_, "color", pass_type);
     if (oidn_color_pass.offset == PASS_UNUSED) {
       return;
     }
-    set_pass(oidn_color_pass);
 
-    if (denoise_params_.use_pass_albedo) {
-      const PassInfo pass_info = Pass::get_info(pass_type);
-      if (!pass_info.use_denoising_albedo) {
-        set_fake_albedo_pass();
-      }
-      else {
-        set_pass(oidn_albedo_pass_);
-      }
-    }
-
-    /* Add output pass. */
     OIDNPass oidn_output_pass(buffer_params_, "output", pass_type, PassMode::DENOISED);
     if (oidn_color_pass.offset == PASS_UNUSED) {
       LOG(DFATAL) << "Missing denoised pass " << pass_type_as_string(pass_type);
       return;
     }
-    set_pass_referenced(oidn_output_pass);
+
+    OIDNPass oidn_color_access_pass = read_input_pass(oidn_color_pass, oidn_output_pass);
+
+    set_input_pass(oidn_color_access_pass);
+    set_guiding_passes(oidn_color_pass);
+    set_output_pass(oidn_output_pass);
 
     /* Execute filter. */
     oidn_filter_->commit();
@@ -213,6 +234,94 @@ class OIDNDenoiseContext {
   }
 
  protected:
+  /* Make pixels of a guiding pass available by the denoiser. */
+  void read_guiding_pass(OIDNPass &oidn_pass)
+  {
+    if (!oidn_pass) {
+      return;
+    }
+
+    DCHECK(!oidn_pass.use_compositing);
+
+    if (!is_pass_scale_needed(oidn_pass)) {
+      /* Pass data is available as-is from the render buffers. */
+      return;
+    }
+
+    if (allow_inplace_modification_) {
+      scale_pass_in_render_buffers(oidn_pass);
+      return;
+    }
+
+    read_pass_pixels_into_buffer(oidn_pass);
+  }
+
+  /* Special reader of the ionput pass.
+   * To save memory it will read pixels into the output, and let the denoiser to perform an
+   * in-place operation. */
+  OIDNPass read_input_pass(OIDNPass &oidn_input_pass, const OIDNPass &oidn_output_pass)
+  {
+    const bool use_compositing = oidn_input_pass.use_compositing;
+
+    /* Simple case: no compositing is involved, no scaling is needed.
+     * The pass pixels will be referenced as-is, without extra processing. */
+    if (!use_compositing && !is_pass_scale_needed(oidn_input_pass)) {
+      return oidn_input_pass;
+    }
+
+    float *buffer_data = render_buffers_->buffer.data();
+    float *pass_data = buffer_data + oidn_output_pass.offset;
+
+    PassAccessor::Destination destination(pass_data, 3);
+    destination.pixel_stride = buffer_params_.pass_stride;
+
+    read_pass_pixels(oidn_input_pass, destination);
+
+    OIDNPass oidn_input_pass_at_output = oidn_input_pass;
+    oidn_input_pass_at_output.offset = oidn_output_pass.offset;
+
+    return oidn_input_pass_at_output;
+  }
+
+  /* Read pass pixels using PassAccessor into the given destination. */
+  void read_pass_pixels(const OIDNPass &oidn_pass, const PassAccessor::Destination &destination)
+  {
+    PassAccessor::PassAccessInfo pass_access_info;
+    pass_access_info.type = oidn_pass.type;
+    pass_access_info.mode = oidn_pass.mode;
+    pass_access_info.offset = oidn_pass.offset;
+
+    /* Denoiser operates on passes which are used to calculate the approximation, and is never used
+     * on the approximation. The latter is not even possible because OIDN does not support
+     * denoising of semi-transparent pixels. */
+    pass_access_info.use_approximate_shadow_catcher = false;
+    pass_access_info.show_active_pixels = false;
+
+    /* OIDN will perform an auto-exposure, so it is not required to know exact exposure configured
+     * by users. What is important is to use same exposure for read and write access of the pass
+     * pixels. */
+    const PassAccessorCPU pass_accessor(pass_access_info, 1.0f, num_samples_);
+
+    pass_accessor.get_render_tile_pixels(render_buffers_, buffer_params_, destination);
+  }
+
+  /* Read pass pixels using PassAccessor into a temporary buffer which is owned by the pass.. */
+  void read_pass_pixels_into_buffer(OIDNPass &oidn_pass)
+  {
+    VLOG(3) << "Allocating temporary buffer for pass " << oidn_pass.name << " ("
+            << pass_type_as_string(oidn_pass.type) << ")";
+
+    const int64_t width = buffer_params_.width;
+    const int64_t height = buffer_params_.height;
+
+    array<float> &scaled_buffer = oidn_pass.scaled_buffer;
+    scaled_buffer.resize(width * height * 3);
+
+    const PassAccessor::Destination destination(scaled_buffer.data(), 3);
+
+    read_pass_pixels(oidn_pass, destination);
+  }
+
   /* Set OIDN image to reference pixels from the given render buffer pass.
    * No transform to the pixels is done, no additional memory is used. */
   void set_pass_referenced(const OIDNPass &oidn_pass)
@@ -240,40 +349,8 @@ class OIDNDenoiseContext {
                            stride * pass_stride * sizeof(float));
   }
 
-  void read_pass_pixels(OIDNPass &oidn_pass)
+  void set_pass_from_buffer(OIDNPass &oidn_pass)
   {
-    const int64_t width = buffer_params_.width;
-    const int64_t height = buffer_params_.height;
-
-    array<float> &scaled_buffer = oidn_pass.scaled_buffer;
-    scaled_buffer.resize(width * height * 3);
-
-    PassAccessor::PassAccessInfo pass_access_info;
-    pass_access_info.type = oidn_pass.type;
-    pass_access_info.mode = oidn_pass.mode;
-    pass_access_info.offset = oidn_pass.offset;
-
-    /* Denoiser operates on passes which are used to calculate the approximation, and is never used
-     * on the approximation. The latter is not even possible because OIDN does not support
-     * denoising of semi-transparent pixels. */
-    pass_access_info.use_approximate_shadow_catcher = false;
-    pass_access_info.show_active_pixels = false;
-
-    /* OIDN will perform an auto-exposure, so it is not required to know exact exposure configured
-     * by users. What is important is to use same exposure for read and write access of the pass
-     * pixels. */
-    const PassAccessorCPU pass_accessor(pass_access_info, 1.0f, num_samples_);
-    const PassAccessor::Destination destination(scaled_buffer.data(), 3);
-
-    pass_accessor.get_render_tile_pixels(render_buffers_, buffer_params_, destination);
-  }
-
-  void set_pass_scaled(OIDNPass &oidn_pass)
-  {
-    if (oidn_pass.scaled_buffer.empty()) {
-      read_pass_pixels(oidn_pass);
-    }
-
     const int64_t width = buffer_params_.width;
     const int64_t height = buffer_params_.height;
 
@@ -289,27 +366,34 @@ class OIDNDenoiseContext {
 
   void set_pass(OIDNPass &oidn_pass)
   {
-    if (oidn_pass.use_compositing) {
-      /* TODO(sergey): Avoid extra memory for compositing passes. */
-      set_pass_scaled(oidn_pass);
-      return;
-    }
-
-    /* When adaptive sampling is involved scaling is always needed.
-     * If the avoid scaling if there is only one sample, to save up time (so we dont divide buffer
-     * by 1). */
-    if (pass_sample_count_ == PASS_UNUSED && (!oidn_pass.need_scale || num_samples_ == 1)) {
+    if (oidn_pass.scaled_buffer.empty()) {
       set_pass_referenced(oidn_pass);
-      return;
     }
-
-    if (allow_inplace_modification_) {
-      set_pass_referenced(oidn_pass);
-      scale_pass_if_needed(oidn_pass);
-      return;
+    else {
+      set_pass_from_buffer(oidn_pass);
     }
+  }
 
-    set_pass_scaled(oidn_pass);
+  void set_input_pass(OIDNPass &oidn_pass)
+  {
+    set_pass_referenced(oidn_pass);
+  }
+
+  void set_guiding_passes(OIDNPass &oidn_pass)
+  {
+    if (oidn_albedo_pass_) {
+      if (oidn_pass.use_denoising_albedo) {
+        set_pass(oidn_albedo_pass_);
+      }
+      else {
+        set_fake_albedo_pass();
+      }
+    }
+  }
+
+  void set_output_pass(OIDNPass &oidn_pass)
+  {
+    set_pass_referenced(oidn_pass);
   }
 
   void set_fake_albedo_pass()
@@ -320,6 +404,8 @@ class OIDNDenoiseContext {
     /* TODO(sergey): Is there a way to avoid allocation of an entire frame of const values? */
 
     if (fake_albedo_pixels_.empty()) {
+      VLOG(3) << "Allocating temporary buffer for fake albedo pass";
+
       const int64_t num_pixels = width * height * 3;
       fake_albedo_pixels_.resize(num_pixels);
       for (int i = 0; i < num_pixels; ++i) {
@@ -384,16 +470,29 @@ class OIDNDenoiseContext {
     }
   }
 
-  void scale_pass_if_needed(OIDNPass &oidn_pass)
+  bool is_pass_scale_needed(OIDNPass &oidn_pass) const
   {
-    if (!oidn_pass.need_scale) {
-      return;
+    if (pass_sample_count_ != PASS_UNUSED) {
+      /* With adaptive sampling pixels will have different number of samples in them, so need to
+       * always scale the pass to make pixels uniformly sampled. */
+      return true;
     }
-    if (oidn_pass.is_scaled) {
-      return;
-    }
-    oidn_pass.is_scaled = true;
 
+    if (!oidn_pass.need_scale) {
+      return false;
+    }
+
+    if (num_samples_ == 1) {
+      /* If the avoid scaling if there is only one sample, to save up time (so we dont divide
+       * buffer by 1). */
+      return false;
+    }
+
+    return true;
+  }
+
+  void scale_pass_in_render_buffers(OIDNPass &oidn_pass)
+  {
     const int64_t x = buffer_params_.full_x;
     const int64_t y = buffer_params_.full_y;
     const int64_t width = buffer_params_.width;
@@ -462,9 +561,20 @@ void OIDNDenoiser::denoise_buffer(const BufferParams &buffer_params,
                              oidn_filter,
                              num_samples,
                              allow_inplace_modification);
-  context.denoise(PASS_COMBINED);
-  context.denoise(PASS_SHADOW_CATCHER);
-  context.denoise(PASS_SHADOW_CATCHER_MATTE);
+
+  if (context.need_denoising()) {
+    context.read_guiding_passes();
+
+    const std::array<PassType, 3> passes = {
+        {PASS_COMBINED, PASS_SHADOW_CATCHER, PASS_SHADOW_CATCHER_MATTE}};
+
+    for (const PassType pass_type : passes) {
+      context.denoise_pass(pass_type);
+      if (is_cancelled()) {
+        return;
+      }
+    }
+  }
 #endif
 
   /* TODO: It may be possible to avoid this copy, but we have to ensure that when other code copies

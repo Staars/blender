@@ -112,7 +112,6 @@ CCL_NAMESPACE_BEGIN
 #define __PRINCIPLED__
 #define __SUBSURFACE__
 #define __VOLUME__
-#define __VOLUME_SCATTER__
 #define __CMJ__
 #define __SHADOW_RECORD_ALL__
 #define __BRANCHED_PATH__
@@ -122,7 +121,6 @@ CCL_NAMESPACE_BEGIN
 #  ifdef WITH_OSL
 #    define __OSL__
 #  endif
-#  define __VOLUME_DECOUPLED__
 #  define __VOLUME_RECORD_ALL__
 #endif /* __KERNEL_CPU__ */
 
@@ -145,7 +143,6 @@ CCL_NAMESPACE_BEGIN
 #endif
 #ifdef __NO_VOLUME__
 #  undef __VOLUME__
-#  undef __VOLUME_SCATTER__
 #endif
 #ifdef __NO_SUBSURFACE__
 #  undef __SUBSURFACE__
@@ -1083,9 +1080,13 @@ typedef struct KernelFilmConvert {
   /* Number of components to write to. */
   int num_components;
 
+  /* Number of floats per pixel. When zero is the same as `num_components`.
+   * NOTE: Is ignored for half4 destination. */
+  int pixel_stride;
+
   int is_denoised;
 
-  int pad1, pad2;
+  int pad1;
 } KernelFilmConvert;
 static_assert_align(KernelFilmConvert, 16);
 
@@ -1417,6 +1418,7 @@ typedef enum DeviceKernel {
   DEVICE_KERNEL_INTEGRATOR_INTERSECT_CLOSEST,
   DEVICE_KERNEL_INTEGRATOR_INTERSECT_SHADOW,
   DEVICE_KERNEL_INTEGRATOR_INTERSECT_SUBSURFACE,
+  DEVICE_KERNEL_INTEGRATOR_INTERSECT_VOLUME_STACK,
   DEVICE_KERNEL_INTEGRATOR_SHADE_BACKGROUND,
   DEVICE_KERNEL_INTEGRATOR_SHADE_LIGHT,
   DEVICE_KERNEL_INTEGRATOR_SHADE_SURFACE,
@@ -1459,8 +1461,10 @@ typedef enum DeviceKernel {
   DEVICE_KERNEL_ADAPTIVE_SAMPLING_CONVERGENCE_FILTER_X,
   DEVICE_KERNEL_ADAPTIVE_SAMPLING_CONVERGENCE_FILTER_Y,
 
-  DEVICE_KERNEL_FILTER_CONVERT_TO_RGB,
-  DEVICE_KERNEL_FILTER_CONVERT_FROM_RGB,
+  DEVICE_KERNEL_FILTER_GUIDING_PREPROCESS,
+  DEVICE_KERNEL_FILTER_GUIDING_SET_FAKE_ALBEDO,
+  DEVICE_KERNEL_FILTER_COLOR_PREPROCESS,
+  DEVICE_KERNEL_FILTER_COLOR_POSTPROCESS,
 
   DEVICE_KERNEL_PREFIX_SUM,
 
