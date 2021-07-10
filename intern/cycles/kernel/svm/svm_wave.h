@@ -90,11 +90,11 @@ ccl_device_noinline_cpu float svm_wave(NodeWaveType type,
   }
 }
 
-ccl_device void svm_node_tex_wave(
+ccl_device_noinline void svm_node_tex_wave(
                                   METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint4 node, METAL_ASQ_THREAD int *offset)
 {
-  uint4 node2 = read_node(kg, offset);
-  uint4 node3 = read_node(kg, offset);
+  uint4 node2 = read_node(kg, &offset);
+  uint4 node3 = read_node(kg, &offset);
 
   /* RNA properties */
   uint type_offset, bands_dir_offset, rings_dir_offset, profile_offset;
@@ -133,6 +133,7 @@ ccl_device void svm_node_tex_wave(
     stack_store_float(stack, fac_offset, f);
   if (stack_valid(color_offset))
     stack_store_float3(stack, color_offset, make_float3(f, f, f));
+  return offset;
 }
 
 CCL_NAMESPACE_END

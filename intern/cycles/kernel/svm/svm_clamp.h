@@ -27,18 +27,18 @@ CCL_NAMESPACE_BEGIN
 
 /* Clamp Node */
 
-ccl_device void svm_node_clamp(METAL_ASQ_DEVICE const KernelGlobals *kg,
+ccl_device_noinline void svm_node_clamp(METAL_ASQ_DEVICE const KernelGlobals *kg,
                                METAL_ASQ_DEVICE ShaderData *sd,
                                METAL_ASQ_THREAD float *stack,
                                uint value_stack_offset,
                                uint parameters_stack_offsets,
                                uint result_stack_offset,
-                               METAL_ASQ_THREAD int *offset)
+                               METAL_ASQ_THREAD int offset)
 {
   uint min_stack_offset, max_stack_offset, type;
   svm_unpack_node_uchar3(parameters_stack_offsets, &min_stack_offset, &max_stack_offset, &type);
 
-  uint4 defaults = read_node(kg, offset);
+  uint4 defaults = read_node(kg, &offset);
 
   float value = stack_load_float(stack, value_stack_offset);
   float min = stack_load_float_default(stack, min_stack_offset, defaults.x);
@@ -50,6 +50,7 @@ ccl_device void svm_node_clamp(METAL_ASQ_DEVICE const KernelGlobals *kg,
   else {
     stack_store_float(stack, result_stack_offset, clamp(value, min, max));
   }
+  return offset;
 }
 
 CCL_NAMESPACE_END

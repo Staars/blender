@@ -78,7 +78,7 @@ ccl_static_constant float cie_colour_match[81][3] = {
     {0.0002f, 0.0001f, 0.0000f}, {0.0002f, 0.0001f, 0.0000f}, {0.0001f, 0.0000f, 0.0000f},
     {0.0001f, 0.0000f, 0.0000f}, {0.0001f, 0.0000f, 0.0000f}, {0.0000f, 0.0000f, 0.0000f}};
 
-ccl_device void svm_node_wavelength(
+ccl_device_noinline void svm_node_wavelength(
                                     METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint wavelength, uint color_out)
 {
   float lambda_nm = stack_load_float(stack, wavelength);

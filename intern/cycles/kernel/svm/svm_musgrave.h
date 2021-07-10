@@ -707,13 +707,13 @@ ccl_device_noinline_cpu float noise_musgrave_ridged_multi_fractal_4d(
   return value;
 }
 
-ccl_device void svm_node_tex_musgrave(METAL_ASQ_DEVICE const KernelGlobals *kg,
+ccl_device_noinline void svm_node_tex_musgrave(METAL_ASQ_DEVICE const KernelGlobals *kg,
                                       METAL_ASQ_DEVICE ShaderData *sd,
                                       METAL_ASQ_THREAD float *stack,
                                       uint offsets1,
                                       uint offsets2,
                                       uint offsets3,
-                                      METAL_ASQ_THREAD int *offset)
+                                      METAL_ASQ_THREAD int offset)
 {
   uint type, dimensions, co_stack_offset, w_stack_offset;
   uint scale_stack_offset, detail_stack_offset, dimension_stack_offset, lacunarity_stack_offset;
@@ -727,8 +727,8 @@ ccl_device void svm_node_tex_musgrave(METAL_ASQ_DEVICE const KernelGlobals *kg,
                          &lacunarity_stack_offset);
   svm_unpack_node_uchar3(offsets3, &offset_stack_offset, &gain_stack_offset, &fac_stack_offset);
 
-  uint4 defaults1 = read_node(kg, offset);
-  uint4 defaults2 = read_node(kg, offset);
+  uint4 defaults1 = read_node(kg, &offset);
+  uint4 defaults2 = read_node(kg, &offset);
 
   float3 co = stack_load_float3(stack, co_stack_offset);
   float w = stack_load_float_default(stack, w_stack_offset, defaults1.x);
@@ -851,6 +851,7 @@ ccl_device void svm_node_tex_musgrave(METAL_ASQ_DEVICE const KernelGlobals *kg,
   }
 
   stack_store_float(stack, fac_stack_offset, fac);
+  return offset;
 }
 
 CCL_NAMESPACE_END

@@ -51,8 +51,8 @@ class OIDNDenoiser::State {
 #endif
 };
 
-OIDNDenoiser::OIDNDenoiser(Device *device, const DenoiseParams &params)
-    : Denoiser(device, params), state_(make_unique<State>())
+OIDNDenoiser::OIDNDenoiser(Device *path_trace_device, const DenoiseParams &params)
+    : Denoiser(path_trace_device, params), state_(make_unique<State>())
 {
   DCHECK_EQ(params.type, DENOISER_OPENIMAGEDENOISE);
 
@@ -65,8 +65,42 @@ OIDNDenoiser::~OIDNDenoiser()
    * per the OIDN denoiser header. */
 }
 
-void OIDNDenoiser::load_kernels(Progress * /*progress*/)
+bool OIDNDenoiser::load_kernels(Progress *progress)
 {
+  if (!Denoiser::load_kernels(progress)) {
+    return false;
+  }
+
+  /* Make sure all lazily-initializable resources are initialized and are ready for use by the
+   * denoising process. */
+
+#ifdef WITH_OPENIMAGEDENOISE
+  if (state_->oidn_filter) {
+    if (params_.use_pass_albedo != state_->use_pass_albedo ||
+        params_.use_pass_normal != state_->use_pass_normal) {
+      state_->oidn_device = nullptr;
+      state_->oidn_filter = nullptr;
+    }
+  }
+
+  if (!state_->oidn_device) {
+    state_->oidn_device = oidn::newDevice();
+    state_->oidn_device.commit();
+  }
+
+  if (!state_->oidn_filter) {
+    state_->oidn_filter = state_->oidn_device.newFilter("RT");
+    state_->oidn_filter.set("hdr", true);
+    state_->oidn_filter.set("srgb", false);
+  }
+
+  state_->use_pass_albedo = params_.use_pass_albedo;
+  state_->use_pass_normal = params_.use_pass_normal;
+
+  return true;
+#else
+  return false;
+#endif
 }
 
 #ifdef WITH_OPENIMAGEDENOISE
@@ -111,6 +145,9 @@ class OIDNPass {
 
   /* For the scaled passes, the data which holds values of scaled pixels. */
   array<float> scaled_buffer;
+
+  /* For the in-place usable passes denotes whether the underlying data has been scaled. */
+  bool is_scaled = false;
 };
 
 class OIDNDenoiseContext {
@@ -119,12 +156,14 @@ class OIDNDenoiseContext {
                      const BufferParams &buffer_params,
                      RenderBuffers *render_buffers,
                      oidn::FilterRef *oidn_filter,
-                     const int num_samples)
+                     const int num_samples,
+                     const bool allow_inplace_modification)
       : denoise_params_(denoise_params),
         buffer_params_(buffer_params),
         render_buffers_(render_buffers),
         oidn_filter_(oidn_filter),
         num_samples_(num_samples),
+        allow_inplace_modification_(allow_inplace_modification),
         pass_sample_count_(buffer_params_.get_pass_offset(PASS_SAMPLE_COUNT))
   {
     if (denoise_params_.use_pass_albedo) {
@@ -251,12 +290,22 @@ class OIDNDenoiseContext {
   void set_pass(OIDNPass &oidn_pass)
   {
     if (oidn_pass.use_compositing) {
+      /* TODO(sergey): Avoid extra memory for compositing passes. */
       set_pass_scaled(oidn_pass);
       return;
     }
 
-    if (!oidn_pass.need_scale || (num_samples_ == 1 && pass_sample_count_ == PASS_UNUSED)) {
+    /* When adaptive sampling is involved scaling is always needed.
+     * If the avoid scaling if there is only one sample, to save up time (so we dont divide buffer
+     * by 1). */
+    if (pass_sample_count_ == PASS_UNUSED && (!oidn_pass.need_scale || num_samples_ == 1)) {
       set_pass_referenced(oidn_pass);
+      return;
+    }
+
+    if (allow_inplace_modification_) {
+      set_pass_referenced(oidn_pass);
+      scale_pass_if_needed(oidn_pass);
       return;
     }
 
@@ -307,20 +356,73 @@ class OIDNDenoiseContext {
       float *buffer_row = buffer_data + buffer_offset + y * row_stride;
       for (int x = 0; x < width; ++x) {
         float *buffer_pixel = buffer_row + x * pass_stride;
-        float *noisy_pixel = buffer_pixel + oidn_input_pass.offset;
         float *denoised_pixel = buffer_pixel + oidn_output_pass.offset;
 
         if (need_scale) {
-          float pixel_scale = has_pass_sample_count ?
-                                  __float_as_uint(buffer_pixel[pass_sample_count_]) :
-                                  num_samples_;
+          const float pixel_scale = has_pass_sample_count ?
+                                        __float_as_uint(buffer_pixel[pass_sample_count_]) :
+                                        num_samples_;
 
           denoised_pixel[0] = denoised_pixel[0] * pixel_scale;
           denoised_pixel[1] = denoised_pixel[1] * pixel_scale;
           denoised_pixel[2] = denoised_pixel[2] * pixel_scale;
         }
 
-        denoised_pixel[3] = noisy_pixel[3];
+        /* Currently compositing passes are either 3-component (derived by dividing light passes)
+         * or do not have transparency (shadow catcher). Implicitly rely on this logic, as it
+         * simplifies logic and avoids extra memory allocation. */
+        if (!oidn_input_pass.use_compositing) {
+          const float *noisy_pixel = buffer_pixel + oidn_input_pass.offset;
+          denoised_pixel[3] = noisy_pixel[3];
+        }
+        else {
+          /* Assigning to zero since this is a default alpha value for 3-component passes, and it
+           * is an opaque pixel for 4 component passes. */
+          denoised_pixel[3] = 0;
+        }
+      }
+    }
+  }
+
+  void scale_pass_if_needed(OIDNPass &oidn_pass)
+  {
+    if (!oidn_pass.need_scale) {
+      return;
+    }
+    if (oidn_pass.is_scaled) {
+      return;
+    }
+    oidn_pass.is_scaled = true;
+
+    const int64_t x = buffer_params_.full_x;
+    const int64_t y = buffer_params_.full_y;
+    const int64_t width = buffer_params_.width;
+    const int64_t height = buffer_params_.height;
+    const int64_t offset = buffer_params_.offset;
+    const int64_t stride = buffer_params_.stride;
+    const int64_t pass_stride = buffer_params_.pass_stride;
+    const int64_t row_stride = stride * pass_stride;
+
+    const int64_t pixel_offset = offset + x + y * stride;
+    const int64_t buffer_offset = (pixel_offset * pass_stride);
+
+    float *buffer_data = render_buffers_->buffer.data();
+
+    const bool has_pass_sample_count = (pass_sample_count_ != PASS_UNUSED);
+
+    for (int y = 0; y < height; ++y) {
+      float *buffer_row = buffer_data + buffer_offset + y * row_stride;
+      for (int x = 0; x < width; ++x) {
+        float *buffer_pixel = buffer_row + x * pass_stride;
+        float *pass_pixel = buffer_pixel + oidn_pass.offset;
+
+        const float pixel_scale = 1.0f / (has_pass_sample_count ?
+                                              __float_as_uint(buffer_pixel[pass_sample_count_]) :
+                                              num_samples_);
+
+        pass_pixel[0] = pass_pixel[0] * pixel_scale;
+        pass_pixel[1] = pass_pixel[1] * pixel_scale;
+        pass_pixel[2] = pass_pixel[2] * pixel_scale;
       }
     }
   }
@@ -330,6 +432,7 @@ class OIDNDenoiseContext {
   RenderBuffers *render_buffers_;
   oidn::FilterRef *oidn_filter_;
   int num_samples_;
+  bool allow_inplace_modification_;
   int pass_sample_count_;
 
   /* Optional albedo and normal passes, reused by denoising of different pass types. */
@@ -342,19 +445,23 @@ class OIDNDenoiseContext {
 
 void OIDNDenoiser::denoise_buffer(const BufferParams &buffer_params,
                                   RenderBuffers *render_buffers,
-                                  const int num_samples)
+                                  const int num_samples,
+                                  bool allow_inplace_modification)
 {
   thread_scoped_lock lock(mutex_);
 
   /* Copy pixels from compute device to CPU (no-op for CPU device). */
   render_buffers->buffer.copy_from_device();
 
-  initialize();
-
 #ifdef WITH_OPENIMAGEDENOISE
   oidn::FilterRef *oidn_filter = &state_->oidn_filter;
 
-  OIDNDenoiseContext context(params_, buffer_params, render_buffers, oidn_filter, num_samples);
+  OIDNDenoiseContext context(params_,
+                             buffer_params,
+                             render_buffers,
+                             oidn_filter,
+                             num_samples,
+                             allow_inplace_modification);
   context.denoise(PASS_COMBINED);
   context.denoise(PASS_SHADOW_CATCHER);
   context.denoise(PASS_SHADOW_CATCHER_MATTE);
@@ -365,56 +472,9 @@ void OIDNDenoiser::denoise_buffer(const BufferParams &buffer_params,
   render_buffers->buffer.copy_to_device();
 }
 
-DeviceInfo OIDNDenoiser::get_denoiser_device_info() const
+uint OIDNDenoiser::get_device_type_mask() const
 {
-  /* OpenImageDenoiser runs on CPU. Access the CPU device information with some safety fallbacks
-   * for possible variations of Cycles integration. */
-
-  vector<DeviceInfo> cpu_devices = Device::available_devices(DEVICE_MASK_CPU);
-
-  if (cpu_devices.empty()) {
-    LOG(ERROR) << "No CPU devices reported.";
-
-    DeviceInfo dummy_info;
-    dummy_info.type = DEVICE_NONE;
-    return dummy_info;
-  }
-
-  if (cpu_devices.size() > 1) {
-    DeviceInfo device_info;
-    device_info.type = DEVICE_MULTI;
-    device_info.multi_devices = cpu_devices;
-    return device_info;
-  }
-
-  return cpu_devices[0];
-}
-
-void OIDNDenoiser::initialize()
-{
-#ifdef WITH_OPENIMAGEDENOISE
-  if (state_->oidn_filter) {
-    if (params_.use_pass_albedo != state_->use_pass_albedo ||
-        params_.use_pass_normal != state_->use_pass_normal) {
-      state_->oidn_device = nullptr;
-      state_->oidn_filter = nullptr;
-    }
-  }
-
-  if (!state_->oidn_device) {
-    state_->oidn_device = oidn::newDevice();
-    state_->oidn_device.commit();
-  }
-
-  if (!state_->oidn_filter) {
-    state_->oidn_filter = state_->oidn_device.newFilter("RT");
-    state_->oidn_filter.set("hdr", true);
-    state_->oidn_filter.set("srgb", false);
-  }
-
-  state_->use_pass_albedo = params_.use_pass_albedo;
-  state_->use_pass_normal = params_.use_pass_normal;
-#endif
+  return DEVICE_MASK_CPU;
 }
 
 CCL_NAMESPACE_END

@@ -907,7 +907,7 @@ ccl_device void voronoi_n_sphere_radius_4d(float4 coord, float randomness, METAL
 }
 
 template<uint node_feature_mask>
-ccl_device void svm_node_tex_voronoi(METAL_ASQ_DEVICE const KernelGlobals *kg,
+ccl_device_noinline void svm_node_tex_voronoi(METAL_ASQ_DEVICE const KernelGlobals *kg,
                                      METAL_ASQ_DEVICE ShaderData *sd,
                                      METAL_ASQ_THREAD float *stack,
                                      uint dimensions,
@@ -915,8 +915,8 @@ ccl_device void svm_node_tex_voronoi(METAL_ASQ_DEVICE const KernelGlobals *kg,
                                      uint metric,
                                      METAL_ASQ_THREAD int *offset)
 {
-  uint4 stack_offsets = read_node(kg, offset);
-  uint4 defaults = read_node(kg, offset);
+  uint4 stack_offsets = read_node(kg, &offset);
+  uint4 defaults = read_node(kg, &offset);
 
   uint coord_stack_offset, w_stack_offset, scale_stack_offset, smoothness_stack_offset;
   uint exponent_stack_offset, randomness_stack_offset, distance_out_stack_offset,
@@ -1143,6 +1143,7 @@ ccl_device void svm_node_tex_voronoi(METAL_ASQ_DEVICE const KernelGlobals *kg,
     stack_store_float(stack, w_out_stack_offset, w_out);
   if (stack_valid(radius_out_stack_offset))
     stack_store_float(stack, radius_out_stack_offset, radius_out);
+  return offset;
 }
 
 CCL_NAMESPACE_END

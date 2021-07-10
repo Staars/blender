@@ -30,6 +30,28 @@
 
 CCL_NAMESPACE_BEGIN
 
+namespace {
+
+class TempCPURenderBuffers {
+ public:
+  /* `device_template` is used to access stats and profiler. */
+  explicit TempCPURenderBuffers(Device *device_template)
+  {
+    vector<DeviceInfo> cpu_devices;
+    device_cpu_info(cpu_devices);
+
+    device.reset(
+        device_cpu_create(cpu_devices[0], device_template->stats, device_template->profiler));
+
+    buffers = make_unique<RenderBuffers>(device.get());
+  }
+
+  unique_ptr<Device> device;
+  unique_ptr<RenderBuffers> buffers;
+};
+
+}  // namespace
+
 PathTrace::PathTrace(Device *device, DeviceScene *device_scene, RenderScheduler &render_scheduler)
     : device_(device), render_scheduler_(render_scheduler)
 {
@@ -41,6 +63,9 @@ PathTrace::PathTrace(Device *device, DeviceScene *device_scene, RenderScheduler 
     path_trace_works_.emplace_back(
         PathTraceWork::create(path_trace_device, device_scene, &render_cancel_.is_requested));
   });
+
+  work_balance_infos_.resize(path_trace_works_.size());
+  work_balance_do_initial(work_balance_infos_);
 }
 
 void PathTrace::load_kernels()
@@ -139,6 +164,7 @@ void PathTrace::render_pipeline(RenderWork render_work)
   }
 
   update_display(render_work);
+  rebalance(render_work);
 
   progress_update_if_needed();
 
@@ -159,6 +185,7 @@ void PathTrace::render_init_kernel_execution()
  * smaller. */
 template<typename Callback>
 static void foreach_sliced_buffer_params(const vector<unique_ptr<PathTraceWork>> &path_trace_works,
+                                         const vector<WorkBalanceInfo> &work_balance_infos,
                                          const BufferParams &buffer_params,
                                          const Callback &callback)
 {
@@ -167,9 +194,7 @@ static void foreach_sliced_buffer_params(const vector<unique_ptr<PathTraceWork>>
 
   int current_y = 0;
   for (int i = 0; i < num_works; ++i) {
-    /* TODO(sergey): Support adaptive weight based on an observed device performance. */
-    const float weight = 1.0f / num_works;
-
+    const double weight = work_balance_infos[i].weight;
     const int slice_height = max(lround(height * weight), 1);
 
     /* Disallow negative values to deal with situations when there are more compute devices than
@@ -196,6 +221,7 @@ static void foreach_sliced_buffer_params(const vector<unique_ptr<PathTraceWork>>
 void PathTrace::update_allocated_work_buffer_params()
 {
   foreach_sliced_buffer_params(path_trace_works_,
+                               work_balance_infos_,
                                big_tile_params_,
                                [](PathTraceWork *path_trace_work, const BufferParams &params) {
                                  RenderBuffers *buffers = path_trace_work->get_render_buffers();
@@ -227,6 +253,7 @@ void PathTrace::update_effective_work_buffer_params(const RenderWork &render_wor
                                                                   resolution_divider);
 
   foreach_sliced_buffer_params(path_trace_works_,
+                               work_balance_infos_,
                                scaled_big_tile_params,
                                [&](PathTraceWork *path_trace_work, const BufferParams params) {
                                  path_trace_work->set_effective_buffer_params(
@@ -258,8 +285,7 @@ void PathTrace::init_render_buffers(const RenderWork &render_work)
   /* Handle initialization scheduled by the render scheduler. */
   if (render_work.init_render_buffers) {
     tbb::parallel_for_each(path_trace_works_, [&](unique_ptr<PathTraceWork> &path_trace_work) {
-      RenderBuffers *buffers = path_trace_work->get_render_buffers();
-      buffers->zero();
+      path_trace_work->zero_render_buffers();
     });
 
     buffer_read();
@@ -277,9 +303,13 @@ void PathTrace::path_trace(RenderWork &render_work)
 
   const double start_time = time_dt();
 
-  tbb::parallel_for_each(path_trace_works_, [&](unique_ptr<PathTraceWork> &path_trace_work) {
+  const int num_works = path_trace_works_.size();
+  tbb::parallel_for(0, num_works, [&](int i) {
+    const double work_start_time = time_dt();
+    PathTraceWork *path_trace_work = path_trace_works_[i].get();
     path_trace_work->render_samples(render_work.path_trace.start_sample,
                                     render_work.path_trace.num_samples);
+    work_balance_infos_[i].time_spent += time_dt() - work_start_time;
   });
 
   render_scheduler_.report_path_trace_time(
@@ -387,38 +417,39 @@ void PathTrace::denoise(const RenderWork &render_work)
 
   RenderBuffers *buffer_to_denoise = nullptr;
 
-  unique_ptr<Device> big_tile_device;
-  unique_ptr<RenderBuffers> big_tile_render_buffers;
+  unique_ptr<RenderBuffers> multi_devoice_buffers;
+  bool allow_inplace_modification = false;
 
   if (path_trace_works_.size() == 1) {
     buffer_to_denoise = path_trace_works_.front()->get_render_buffers();
   }
   else {
-    /* TODO(sergey): Try to reuse the buffer as much as possible. */
-    /* TODO(sergey): Split the functionality into a separate function. */
+    Device *denoiser_device = denoiser_->get_denoiser_device();
+    if (!denoiser_device) {
+      return;
+    }
 
-    /* Used to access stats and profiler. */
-    Device *device_template = path_trace_works_.front()->get_device();
+    multi_devoice_buffers = make_unique<RenderBuffers>(denoiser_device);
+    multi_devoice_buffers->reset(render_state_.effective_big_tile_params);
 
-    /* TODO(sergey): Share same device as what will be used by the denoiser. */
-    vector<DeviceInfo> cpu_devices;
-    device_cpu_info(cpu_devices);
-    big_tile_device.reset(
-        device_cpu_create(cpu_devices[0], device_template->stats, device_template->profiler));
+    buffer_to_denoise = multi_devoice_buffers.get();
 
-    big_tile_render_buffers = make_unique<RenderBuffers>(big_tile_device.get());
-    big_tile_render_buffers->reset(render_state_.effective_big_tile_params);
+    copy_to_render_buffers(multi_devoice_buffers.get());
 
-    buffer_to_denoise = big_tile_render_buffers.get();
-
-    copy_to_render_buffers(big_tile_render_buffers.get());
+    allow_inplace_modification = true;
   }
 
-  denoiser_->denoise_buffer(
-      render_state_.effective_big_tile_params, buffer_to_denoise, get_num_samples_in_buffer());
+  denoiser_->denoise_buffer(render_state_.effective_big_tile_params,
+                            buffer_to_denoise,
+                            get_num_samples_in_buffer(),
+                            allow_inplace_modification);
 
-  if (big_tile_render_buffers) {
-    copy_from_render_buffers(big_tile_render_buffers.get());
+  if (multi_devoice_buffers) {
+    multi_devoice_buffers->copy_from_device();
+    tbb::parallel_for_each(
+        path_trace_works_, [&multi_devoice_buffers](unique_ptr<PathTraceWork> &path_trace_work) {
+          path_trace_work->copy_from_denoised_render_buffers(multi_devoice_buffers.get());
+        });
   }
 
   render_scheduler_.report_denoise_time(render_work, time_dt() - start_time);
@@ -493,6 +524,60 @@ void PathTrace::update_display(const RenderWork &render_work)
   render_scheduler_.report_display_update_time(render_work, time_dt() - start_time);
 }
 
+void PathTrace::rebalance(const RenderWork &render_work)
+{
+  static const int kLogLevel = 3;
+
+  scoped_timer timer;
+
+  const int num_works = path_trace_works_.size();
+
+  if (!render_work.rebalance) {
+    return;
+  }
+
+  if (num_works == 1) {
+    VLOG(kLogLevel) << "Ignoring rebalance work due to single device render.";
+    return;
+  }
+
+  if (VLOG_IS_ON(kLogLevel)) {
+    VLOG(kLogLevel) << "Perform rebalance work.";
+    VLOG(kLogLevel) << "Per-device path tracing time (seconds):";
+    for (int i = 0; i < num_works; ++i) {
+      VLOG(kLogLevel) << path_trace_works_[i]->get_device()->info.description << ": "
+                      << work_balance_infos_[i].time_spent;
+    }
+  }
+
+  const bool did_rebalance = work_balance_do_rebalance(work_balance_infos_);
+
+  if (VLOG_IS_ON(kLogLevel)) {
+    VLOG(kLogLevel) << "Calculated per-device weights for works:";
+    for (int i = 0; i < num_works; ++i) {
+      LOG(INFO) << path_trace_works_[i]->get_device()->info.description << ": "
+                << work_balance_infos_[i].weight;
+    }
+  }
+
+  if (!did_rebalance) {
+    VLOG(kLogLevel) << "Balance in path trace works did not change.";
+    return;
+  }
+
+  TempCPURenderBuffers big_tile_cpu_buffers(device_);
+  big_tile_cpu_buffers.buffers->reset(render_state_.effective_big_tile_params);
+
+  copy_to_render_buffers(big_tile_cpu_buffers.buffers.get());
+
+  render_state_.need_reset_params = true;
+  update_work_buffer_params_if_needed(render_work);
+
+  copy_from_render_buffers(big_tile_cpu_buffers.buffers.get());
+
+  VLOG(kLogLevel) << "Rebalance time (seconds): " << timer.get_time();
+}
+
 void PathTrace::cancel()
 {
   thread_scoped_lock lock(render_cancel_.mutex);
@@ -543,8 +628,7 @@ void PathTrace::buffer_read()
 
   if (buffer_read_cb()) {
     tbb::parallel_for_each(path_trace_works_, [](unique_ptr<PathTraceWork> &path_trace_work) {
-      RenderBuffers *buffers = path_trace_work->get_render_buffers();
-      buffers->copy_to_device();
+      path_trace_work->copy_render_buffers_to_device();
     });
   }
 }
@@ -586,7 +670,7 @@ bool PathTrace::copy_render_tile_from_device()
     if (!success) {
       return;
     }
-    if (!path_trace_work->copy_render_tile_from_device()) {
+    if (!path_trace_work->copy_render_buffers_from_device()) {
       success = false;
     }
   });
@@ -740,12 +824,12 @@ static string denoiser_device_report(const Denoiser *denoiser)
     return "";
   }
 
-  const DeviceInfo device_info = denoiser->get_denoiser_device_info();
-  if (device_info.type == DEVICE_NONE) {
+  const Device *denoiser_device = denoiser->get_denoiser_device();
+  if (!denoiser_device) {
     return "";
   }
 
-  return device_info_list_report("Denoising on", device_info);
+  return device_info_list_report("Denoising on", denoiser_device->info);
 }
 
 string PathTrace::full_report() const

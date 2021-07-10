@@ -96,7 +96,7 @@ ccl_device_inline float wireframe(
   return 0.0f;
 }
 
-ccl_device void svm_node_wireframe(METAL_ASQ_DEVICE const KernelGlobals *kg,
+ccl_device_noinline void svm_node_wireframe(METAL_ASQ_DEVICE const KernelGlobals *kg,
                                    METAL_ASQ_DEVICE ShaderData *sd,
                                    METAL_ASQ_THREAD float *stack,
                                    uint4 node)

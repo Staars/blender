@@ -26,7 +26,7 @@ CCL_NAMESPACE_BEGIN
 
 /* Vector Rotate */
 
-ccl_device void svm_node_vector_rotate(METAL_ASQ_DEVICE ShaderData *sd,
+ccl_device_noinline void svm_node_vector_rotate(METAL_ASQ_DEVICE ShaderData *sd,
                                        METAL_ASQ_THREAD float *stack,
                                        uint input_stack_offsets,
                                        uint axis_stack_offsets,

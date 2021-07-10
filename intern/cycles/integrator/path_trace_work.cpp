@@ -76,7 +76,7 @@ bool PathTraceWork::has_multiple_works() const
 
 void PathTraceWork::copy_to_render_buffers(RenderBuffers *render_buffers)
 {
-  buffers_->copy_from_device();
+  copy_render_buffers_from_device();
 
   const int64_t width = effective_buffer_params_.width;
   const int64_t height = effective_buffer_params_.height;
@@ -109,12 +109,54 @@ void PathTraceWork::copy_from_render_buffers(const RenderBuffers *render_buffers
 
   memcpy(dst, src, data_size);
 
-  buffers_->copy_to_device();
+  copy_render_buffers_to_device();
 }
 
-bool PathTraceWork::copy_render_tile_from_device()
+void PathTraceWork::copy_from_denoised_render_buffers(const RenderBuffers *render_buffers)
 {
-  return buffers_->copy_from_device();
+  const int64_t width = effective_buffer_params_.width;
+  const int64_t height = effective_buffer_params_.height;
+  const int64_t pass_stride = effective_buffer_params_.pass_stride;
+  const int64_t row_stride = width * pass_stride;
+  const int64_t num_pixels = width * height;
+
+  const int64_t offset_y = effective_buffer_params_.full_y - effective_big_tile_params_.full_y;
+  const int64_t offset_in_floats = offset_y * row_stride;
+
+  const float *src = render_buffers->buffer.data() + offset_in_floats;
+  float *dst = buffers_->buffer.data();
+
+  /* Gather pass offsets which are to be copied. */
+  /* TODO(sergey): Somehow de-duplicate logic with OptiX and OpenImage denoisers, so that we don't
+   * have duplicated list of passes in multiple places. */
+  const PassType pass_types[] = {
+      PASS_COMBINED, PASS_SHADOW_CATCHER, PASS_SHADOW_CATCHER_MATTE, PASS_NONE};
+  int pass_offsets[PASS_NUM];
+  int num_passes = 0;
+  for (int i = 0; i < PASS_NUM; ++i) {
+    if (pass_types[i] == PASS_NONE) {
+      break;
+    }
+    pass_offsets[i] = render_buffers->params.get_pass_offset(pass_types[i], PassMode::DENOISED);
+    ++num_passes;
+  }
+
+  for (int i = 0; i < num_pixels; ++i, src += pass_stride, dst += pass_stride) {
+    for (int pass_offset_idx = 0; pass_offset_idx < num_passes; ++pass_offset_idx) {
+      const int pass_offset = pass_offsets[pass_offset_idx];
+      if (pass_offset == PASS_UNUSED) {
+        continue;
+      }
+
+      /* TODO(sergey): Support non-RGBA passes. */
+      dst[pass_offset + 0] = src[pass_offset + 0];
+      dst[pass_offset + 1] = src[pass_offset + 1];
+      dst[pass_offset + 2] = src[pass_offset + 2];
+      dst[pass_offset + 3] = src[pass_offset + 3];
+    }
+  }
+
+  copy_render_buffers_to_device();
 }
 
 bool PathTraceWork::get_render_tile_pixels(const PassAccessor &pass_accessor,

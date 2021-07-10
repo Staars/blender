@@ -30,8 +30,8 @@ CCL_NAMESPACE_BEGIN
 
 /* Texture Coordinate Node */
 
-ccl_device void svm_node_tex_coord(
-                                   METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd, int path_flag, METAL_ASQ_THREAD float *stack, uint4 node, METAL_ASQ_THREAD int *offset)
+ccl_device_noinline void svm_node_tex_coord(
+                                   METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd, int path_flag, METAL_ASQ_THREAD float *stack, uint4 node, METAL_ASQ_THREAD int offset)
 {
   float3 data;
   uint type = node.y;
@@ -47,9 +47,9 @@ ccl_device void svm_node_tex_coord(
       }
       else {
         Transform tfm;
-        tfm.x = read_node_float(kg, offset);
-        tfm.y = read_node_float(kg, offset);
-        tfm.z = read_node_float(kg, offset);
+        tfm.x = read_node_float(kg, &offset);
+        tfm.y = read_node_float(kg, &offset);
+        tfm.z = read_node_float(kg, &offset);
         data = transform_point(&tfm, data);
       }
       break;
@@ -104,10 +104,11 @@ ccl_device void svm_node_tex_coord(
   }
 
   stack_store_float3(stack, out_offset, data);
+  return offset;
 }
 
-ccl_device void svm_node_tex_coord_bump_dx(
-                                           METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd, int path_flag, METAL_ASQ_THREAD float *stack, uint4 node, METAL_ASQ_THREAD int *offset)
+ccl_device_noinline void svm_node_tex_coord_bump_dx(
+                                           METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd, int path_flag, METAL_ASQ_THREAD float *stack, uint4 node, METAL_ASQ_THREAD int offset)
 {
 #ifdef __RAY_DIFFERENTIALS__
   float3 data;
@@ -124,9 +125,9 @@ ccl_device void svm_node_tex_coord_bump_dx(
       }
       else {
         Transform tfm;
-        tfm.x = read_node_float(kg, offset);
-        tfm.y = read_node_float(kg, offset);
-        tfm.z = read_node_float(kg, offset);
+        tfm.x = read_node_float(kg, &offset);
+        tfm.y = read_node_float(kg, &offset);
+        tfm.z = read_node_float(kg, &offset);
         data = transform_point(&tfm, data);
       }
       break;
@@ -181,13 +182,15 @@ ccl_device void svm_node_tex_coord_bump_dx(
   }
 
   stack_store_float3(stack, out_offset, data);
+  return offset;
 #else
-  svm_node_tex_coord(kg, sd, path_flag, stack, node, offset);
+  return svm_node_tex_coord(kg, sd, path_flag, stack, node, offset);
 #endif
 }
 
-ccl_device void svm_node_tex_coord_bump_dy(
-                                           METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd, int path_flag, METAL_ASQ_THREAD float *stack, uint4 node, METAL_ASQ_THREAD int *offset)
+ccl_device_noinline void svm_node_tex_coord_bump_dy(
+                                           METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd, int path_flag, METAL_ASQ_THREAD float *stack, uint4 node, METAL_ASQ_THREAD int offset)
+
 {
 #ifdef __RAY_DIFFERENTIALS__
   float3 data;
@@ -204,9 +207,9 @@ ccl_device void svm_node_tex_coord_bump_dy(
       }
       else {
         Transform tfm;
-        tfm.x = read_node_float(kg, offset);
-        tfm.y = read_node_float(kg, offset);
-        tfm.z = read_node_float(kg, offset);
+        tfm.x = read_node_float(kg, &offset);
+        tfm.y = read_node_float(kg, &offset);
+        tfm.z = read_node_float(kg, &offset);
         data = transform_point(&tfm, data);
       }
       break;
@@ -261,12 +264,13 @@ ccl_device void svm_node_tex_coord_bump_dy(
   }
 
   stack_store_float3(stack, out_offset, data);
+  return offset;
 #else
-  svm_node_tex_coord(kg, sd, path_flag, stack, node, offset);
+  return svm_node_tex_coord(kg, sd, path_flag, stack, node, offset);
 #endif
 }
 
-ccl_device void svm_node_normal_map(METAL_ASQ_DEVICE const KernelGlobals *kg,
+ccl_device_noinline void svm_node_normal_map(METAL_ASQ_DEVICE const KernelGlobals *kg,
                                     METAL_ASQ_DEVICE ShaderData *sd,
                                     METAL_ASQ_THREAD float *stack,
                                     uint4 node)
@@ -363,7 +367,8 @@ ccl_device void svm_node_normal_map(METAL_ASQ_DEVICE const KernelGlobals *kg,
   stack_store_float3(stack, normal_offset, N);
 }
 
-ccl_device void svm_node_tangent(METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint4 node)
+
+ccl_device_noinline void svm_node_tangent(METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint4 node)
 {
   uint tangent_offset, direction_type, axis;
   svm_unpack_node_uchar3(node.y, &tangent_offset, &direction_type, &axis);

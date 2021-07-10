@@ -23,7 +23,7 @@
 #endif
 CCL_NAMESPACE_BEGIN
 
-ccl_device void svm_node_gamma(
+ccl_device_noinline void svm_node_gamma(
                                METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint in_gamma, uint in_color, uint out_color)
 {
   float3 color = stack_load_float3(stack, in_color);

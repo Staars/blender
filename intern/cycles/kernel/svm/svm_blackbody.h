@@ -43,7 +43,7 @@ CCL_NAMESPACE_BEGIN
 
 /* Blackbody Node */
 
-ccl_device void svm_node_blackbody(METAL_ASQ_DEVICE const KernelGlobals *kg,
+ccl_device_noinline void svm_node_blackbody(METAL_ASQ_DEVICE const KernelGlobals *kg,
                                    METAL_ASQ_DEVICE ShaderData *sd,
                                    METAL_ASQ_THREAD float *stack,
                                    uint temperature_offset,

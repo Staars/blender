@@ -83,7 +83,7 @@ ccl_device_noinline void motion_triangle_shader_setup(METAL_ASQ_DEVICE const Ker
     sd->P = motion_triangle_refine_local(kg, sd, P, D, ray_t, isect_object, isect_prim, verts);
   }
   else
-#endif /*  __BVH_LOCAL__*/
+#endif /* __BVH_LOCAL__*/
   {
     sd->P = motion_triangle_refine(kg, sd, P, D, ray_t, isect_object, isect_prim, verts);
   }

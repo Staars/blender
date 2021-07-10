@@ -23,7 +23,7 @@
 
 CCL_NAMESPACE_BEGIN
 
-ccl_device void svm_node_vertex_color(METAL_ASQ_DEVICE const KernelGlobals *kg,
+ccl_device_noinline void svm_node_vertex_color(METAL_ASQ_DEVICE const KernelGlobals *kg,
                                       METAL_ASQ_DEVICE ShaderData *sd,
                                       METAL_ASQ_THREAD float *stack,
                                       uint layer_id,
@@ -42,11 +42,7 @@ ccl_device void svm_node_vertex_color(METAL_ASQ_DEVICE const KernelGlobals *kg,
   }
 }
 
-#ifndef __KERNEL_CUDA__
-ccl_device
-#else
 ccl_device_noinline
-#endif
     void
     svm_node_vertex_color_bump_dx(METAL_ASQ_DEVICE const KernelGlobals *kg,
                                   METAL_ASQ_DEVICE ShaderData *sd,
@@ -69,11 +65,7 @@ ccl_device_noinline
   }
 }
 
-#ifndef __KERNEL_CUDA__
-ccl_device
-#else
 ccl_device_noinline
-#endif
     void
     svm_node_vertex_color_bump_dy(METAL_ASQ_DEVICE const KernelGlobals *kg,
                                   METAL_ASQ_DEVICE ShaderData *sd,
@@ -81,6 +73,7 @@ ccl_device_noinline
                                   uint layer_id,
                                   uint color_offset,
                                   uint alpha_offset)
+
 {
   AttributeDescriptor descriptor = find_attribute(kg, sd, layer_id);
   if (descriptor.offset != ATTR_STD_NOT_FOUND) {

@@ -34,14 +34,15 @@ ccl_device void svm_node_value_f(
 }
 
 ccl_device void svm_node_value_v(
-                                 METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint out_offset, METAL_ASQ_THREAD int *offset)
+                                 METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint out_offset, int offset)
 {
   /* read extra data */
-  uint4 node1 = read_node(kg, offset);
+  uint4 node1 = read_node(kg, &offset);
   float3 p = make_float3(
       __uint_as_float(node1.y), __uint_as_float(node1.z), __uint_as_float(node1.w));
 
   stack_store_float3(stack, out_offset, p);
+  return offset;
 }
 
 CCL_NAMESPACE_END

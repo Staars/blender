@@ -25,7 +25,7 @@
 
 CCL_NAMESPACE_BEGIN
 
-ccl_device void svm_node_camera(METAL_ASQ_DEVICE const KernelGlobals *kg,
+ccl_device_noinline void svm_node_camera(METAL_ASQ_DEVICE const KernelGlobals *kg,
                                 METAL_ASQ_DEVICE ShaderData *sd,
                                 METAL_ASQ_THREAD float *stack,
                                 uint out_vector,

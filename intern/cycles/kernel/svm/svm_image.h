@@ -53,8 +53,8 @@ ccl_device_inline float3 texco_remap_square(float3 co)
   return (co - make_float3(0.5f, 0.5f, 0.5f)) * 2.0f;
 }
 
-ccl_device void svm_node_tex_image(
-                                   METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint4 node, METAL_ASQ_THREAD int *offset)
+ccl_device_noinline void svm_node_tex_image(
+                                   METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint4 node, METAL_ASQ_THREAD int offset)
 {
   uint co_offset, out_offset, alpha_offset, flags;
 
@@ -80,7 +80,7 @@ ccl_device void svm_node_tex_image(
   int num_nodes = (int)node.y;
   if (num_nodes > 0) {
     /* Remember the offset of the node following the tile nodes. */
-    int next_offset = (*offset) + num_nodes;
+    int next_offset = offset + num_nodes;
 
     /* Find the tile that the UV lies in. */
     int tx = (int)tex_co.x;
@@ -92,7 +92,7 @@ ccl_device void svm_node_tex_image(
 
       /* Find the index of the tile. */
       for (int i = 0; i < num_nodes; i++) {
-        uint4 tile_node = read_node(kg, offset);
+        uint4 tile_node = read_node(kg, &offset);
         if (tile_node.x == tile) {
           id = tile_node.y;
           break;
@@ -111,7 +111,7 @@ ccl_device void svm_node_tex_image(
     }
 
     /* Skip over the remaining nodes. */
-    *offset = next_offset;
+    offset = next_offset;
   }
   else {
     id = -num_nodes;
@@ -123,9 +123,10 @@ ccl_device void svm_node_tex_image(
     stack_store_float3(stack, out_offset, make_float3(f.x, f.y, f.z));
   if (stack_valid(alpha_offset))
     stack_store_float(stack, alpha_offset, f.w);
+  return offset;
 }
 
-ccl_device_forceinline void svm_node_tex_image_box(METAL_ASQ_DEVICE const KernelGlobals *kg,
+ccl_device_noinline void svm_node_tex_image_box(METAL_ASQ_DEVICE const KernelGlobals *kg,
                                                    METAL_ASQ_DEVICE ShaderData *sd,
                                                    METAL_ASQ_THREAD float *stack,
                                                    uint4 node)
@@ -194,7 +195,7 @@ ccl_device_forceinline void svm_node_tex_image_box(METAL_ASQ_DEVICE const Kernel
     }
   }
   else {
-    /* Desperate mode, no valid choice anyway, fallback to one side.*/
+    /* Desperate mode, no valid choice anyway, fallback to one side. */
     weight.x = 1.0f;
   }
 
@@ -227,7 +228,7 @@ ccl_device_forceinline void svm_node_tex_image_box(METAL_ASQ_DEVICE const Kernel
     stack_store_float(stack, alpha_offset, f.w);
 }
 
-ccl_device void svm_node_tex_environment(METAL_ASQ_DEVICE const KernelGlobals *kg,
+ccl_device_noinline void svm_node_tex_environment(METAL_ASQ_DEVICE const KernelGlobals *kg,
                                          METAL_ASQ_DEVICE ShaderData *sd,
                                          METAL_ASQ_THREAD float *stack,
                                          uint4 node)

@@ -27,7 +27,7 @@ CCL_NAMESPACE_BEGIN
 
 /* Geometry Node */
 
-ccl_device_inline void svm_node_geometry(
+ccl_device_noinline void svm_node_geometry(
                                          METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint type, uint out_offset)
 {
   float3 data;
@@ -60,7 +60,7 @@ ccl_device_inline void svm_node_geometry(
   stack_store_float3(stack, out_offset, data);
 }
 
-ccl_device void svm_node_geometry_bump_dx(
+ccl_device_noinline void svm_node_geometry_bump_dx(
                                           METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint type, uint out_offset)
 {
 #ifdef __RAY_DIFFERENTIALS__
@@ -84,7 +84,7 @@ ccl_device void svm_node_geometry_bump_dx(
 #endif
 }
 
-ccl_device void svm_node_geometry_bump_dy(
+ccl_device_noinline void svm_node_geometry_bump_dy(
                                           METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint type, uint out_offset)
 {
 #ifdef __RAY_DIFFERENTIALS__
@@ -110,7 +110,7 @@ ccl_device void svm_node_geometry_bump_dy(
 
 /* Object Info */
 
-ccl_device void svm_node_object_info(
+ccl_device_noinline void svm_node_object_info(
                                      METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint type, uint out_offset)
 {
   float data;
@@ -149,7 +149,7 @@ ccl_device void svm_node_object_info(
 
 /* Particle Info */
 
-ccl_device void svm_node_particle_info(
+ccl_device_noinline void svm_node_particle_info(
                                        METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint type, uint out_offset)
 {
   switch (type) {
@@ -208,7 +208,7 @@ ccl_device void svm_node_particle_info(
 
 /* Hair Info */
 
-ccl_device void svm_node_hair_info(
+ccl_device_noinline void svm_node_hair_info(
                                    METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint type, uint out_offset)
 {
   float data;

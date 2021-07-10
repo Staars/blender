@@ -106,8 +106,8 @@ ccl_device_inline float kernel_ies_interp(METAL_ASQ_DEVICE const KernelGlobals *
   return max(cubic_interp(a, b, c, d, h_frac), 0.0f);
 }
 
-ccl_device void svm_node_ies(
-                             METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint4 node, METAL_ASQ_THREAD int *offset)
+ccl_device_noinline void svm_node_ies(
+                             METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint4 node)
 {
   uint vector_offset, strength_offset, fac_offset, slot = node.z;
   svm_unpack_node_uchar3(node.y, &strength_offset, &vector_offset, &fac_offset);

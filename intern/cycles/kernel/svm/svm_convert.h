@@ -26,7 +26,7 @@ CCL_NAMESPACE_BEGIN
 
 /* Conversion Nodes */
 
-ccl_device void svm_node_convert(
+ccl_device_noinline void svm_node_convert(
                                  METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint type, uint from, uint to)
 {
   switch (type) {

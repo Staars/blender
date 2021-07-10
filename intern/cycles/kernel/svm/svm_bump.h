@@ -26,7 +26,7 @@ CCL_NAMESPACE_BEGIN
 
 /* Bump Eval Nodes */
 
-ccl_device void svm_node_enter_bump_eval(METAL_ASQ_DEVICE const KernelGlobals *kg,
+ccl_device_noinline void svm_node_enter_bump_eval(METAL_ASQ_DEVICE const KernelGlobals *kg,
                                          METAL_ASQ_DEVICE ShaderData *sd,
                                          METAL_ASQ_THREAD float *stack,
                                          uint offset)
@@ -53,7 +53,7 @@ ccl_device void svm_node_enter_bump_eval(METAL_ASQ_DEVICE const KernelGlobals *k
   }
 }
 
-ccl_device void svm_node_leave_bump_eval(METAL_ASQ_DEVICE const KernelGlobals *kg,
+ccl_device_noinline void svm_node_leave_bump_eval(METAL_ASQ_DEVICE const KernelGlobals *kg,
                                          METAL_ASQ_DEVICE ShaderData *sd,
                                          METAL_ASQ_THREAD float *stack,
                                          uint offset)

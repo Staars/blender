@@ -44,7 +44,7 @@ ccl_device_forceinline ccl_global float *kernel_pass_pixel_render_buffer(
 
 #ifdef __DENOISING_FEATURES__
 
-ccl_device_inline void kernel_write_denoising_features(
+ccl_device_forceinline void kernel_write_denoising_features(
     INTEGRATOR_STATE_ARGS, METAL_ASQ_DEVICE const ShaderData *sd, ccl_global float *ccl_restrict render_buffer)
 {
   if (!(INTEGRATOR_STATE(path, flag) & PATH_RAY_DENOISING_FEATURES)) {
@@ -136,7 +136,7 @@ ccl_device_inline void kernel_write_denoising_features(
 #ifdef __SHADOW_CATCHER__
 
 /* Write shadow catcher passes on a bounce from the shadow catcher object. */
-ccl_device_inline void kernel_write_shadow_catcher_bounce_data(
+ccl_device_forceinline void kernel_write_shadow_catcher_bounce_data(
     INTEGRATOR_STATE_ARGS, METAL_ASQ_DEVICE const ShaderData *sd, ccl_global float *ccl_restrict render_buffer)
 {
   if (!kernel_data.integrator.has_shadow_catcher) {

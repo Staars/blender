@@ -30,8 +30,7 @@ ccl_device void svm_node_tex_white_noise(METAL_ASQ_DEVICE const KernelGlobals *k
                                          METAL_ASQ_THREAD float *stack,
                                          uint dimensions,
                                          uint inputs_stack_offsets,
-                                         uint ouptuts_stack_offsets,
-                                         METAL_ASQ_THREAD int *offset)
+                                         uint ouptuts_stack_offsets)
 {
   uint vector_stack_offset, w_stack_offset, value_stack_offset, color_stack_offset;
   svm_unpack_node_uchar2(inputs_stack_offsets, &vector_stack_offset, &w_stack_offset);

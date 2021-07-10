@@ -57,7 +57,7 @@ ccl_device AttributeDescriptor svm_node_attr_init(METAL_ASQ_DEVICE const KernelG
 }
 
 template<uint node_feature_mask>
-ccl_device void svm_node_attr(METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint4 node)
+ccl_device_noinline void svm_node_attr(METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint4 node)
 {
   NodeAttributeOutputType type = NODE_ATTR_OUTPUT_FLOAT;
   uint out_offset = 0;
@@ -138,7 +138,7 @@ ccl_device void svm_node_attr(METAL_ASQ_DEVICE const KernelGlobals *kg, METAL_AS
   }
 }
 
-ccl_device void svm_node_attr_bump_dx(METAL_ASQ_DEVICE const KernelGlobals *kg,
+ccl_device_noinline void svm_node_attr_bump_dx(METAL_ASQ_DEVICE const KernelGlobals *kg,
                                       METAL_ASQ_DEVICE ShaderData *sd,
                                       METAL_ASQ_THREAD float *stack,
                                       uint4 node)
@@ -218,7 +218,7 @@ ccl_device void svm_node_attr_bump_dx(METAL_ASQ_DEVICE const KernelGlobals *kg,
   }
 }
 
-ccl_device void svm_node_attr_bump_dy(METAL_ASQ_DEVICE const KernelGlobals *kg,
+ccl_device_noinline void svm_node_attr_bump_dy(METAL_ASQ_DEVICE const KernelGlobals *kg,
                                       METAL_ASQ_DEVICE ShaderData *sd,
                                       METAL_ASQ_THREAD float *stack,
                                       uint4 node)

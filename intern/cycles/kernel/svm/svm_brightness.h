@@ -24,7 +24,7 @@
 
 CCL_NAMESPACE_BEGIN
 
-ccl_device void svm_node_brightness(
+ccl_device_noinline void svm_node_brightness(
                                     METAL_ASQ_DEVICE ShaderData *sd, METAL_ASQ_THREAD float *stack, uint in_color, uint out_color, uint node)
 {
   uint bright_offset, contrast_offset;

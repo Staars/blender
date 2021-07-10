@@ -292,7 +292,7 @@ ccl_device_inline void shader_setup_from_sample(METAL_ASQ_DEVICE const KernelGlo
   /* primitive */
   sd->object = object;
   sd->lamp = LAMP_NONE;
-  /* currently no access to bvh prim index for strand sd->prim*/
+  /* Currently no access to bvh prim index for strand sd->prim. */
   sd->prim = prim;
   sd->u = u;
   sd->v = v;
@@ -479,7 +479,7 @@ ccl_device_inline void shader_setup_from_volume(METAL_ASQ_DEVICE const KernelGlo
   sd->object = OBJECT_NONE; /* todo: fill this for texture coordinates */
   sd->lamp = LAMP_NONE;
   sd->prim = PRIM_NONE;
-  sd->type = PRIMITIVE_NONE;
+  sd->type = PRIMITIVE_VOLUME;
 
   sd->u = 0.0f;
   sd->v = 0.0f;
@@ -592,11 +592,7 @@ ccl_device_inline void shader_prepare_closures(INTEGRATOR_STATE_CONST_ARGS, META
 
 ccl_device_inline bool shader_bsdf_is_transmission(METAL_ASQ_DEVICE const ShaderData *sd, const float3 omega_in)
 {
-  /* For curves use the smooth normal, particularly for ribbons the geometric
-   * normal gives too much darkening otherwise. */
-  const float3 Ng = (sd->type & PRIMITIVE_ALL_CURVE) ? sd->N : sd->Ng;
-
-  return dot(Ng, omega_in) < 0.0f;
+  return dot(sd->N, omega_in) < 0.0f;
 }
 
 ccl_device_forceinline bool _shader_bsdf_exclude(ClosureType type, uint light_shader_flags)
