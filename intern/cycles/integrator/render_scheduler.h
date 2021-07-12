@@ -136,6 +136,7 @@ class RenderScheduler {
   void report_adaptive_filter_time(const RenderWork &render_work, double time, bool is_cancelled);
   void report_denoise_time(const RenderWork &render_work, double time);
   void report_display_update_time(const RenderWork &render_work, double time);
+  void report_rebalance_time(const RenderWork &render_work, double time);
 
   /* Generate full multi-line report of the rendering process, including rendering parameters,
    * times, and so on. */
@@ -200,6 +201,9 @@ class RenderScheduler {
    * for the resolution divider calculation. */
   bool work_is_usable_for_first_render_estimation(const RenderWork &render_work);
 
+  /* Check whether timing report about the given work need to reset accumulated average time. */
+  bool work_report_reset_average(const RenderWork &render_work);
+
   void set_start_render_time_if_needed();
 
   /* CHeck whether render time limit has been reached (or exceeded), and if so store related
@@ -248,6 +252,17 @@ class RenderScheduler {
       return average_time_accumulator_ / num_average_times_;
     }
 
+    inline void reset_average()
+    {
+      average_time_accumulator_ = 0.0;
+      num_average_times_ = 0;
+    }
+
+    inline int get_num_observations() const
+    {
+      return num_average_times_;
+    }
+
    protected:
     double total_wall_time_ = 0.0;
 
@@ -294,6 +309,7 @@ class RenderScheduler {
   TimeWithAverage adaptive_filter_time_;
   TimeWithAverage denoise_time_;
   TimeWithAverage display_update_time_;
+  TimeWithAverage rebalance_time_;
 
   /* Path tracing work will be scheduled for samples from within
    * [start_sample_, start_sample_ + num_samples_ - 1] range, inclusively. */
