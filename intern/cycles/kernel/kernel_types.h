@@ -1126,12 +1126,10 @@ typedef struct KernelIntegrator {
   int volume_max_steps;
   float volume_step_rate;
 
-  int max_closures;
-
   int has_shadow_catcher;
 
   /* padding */
-  int pad1;
+  int pad1, pad2;
 } KernelIntegrator;
 static_assert_align(KernelIntegrator, 16);
 
@@ -1190,7 +1188,9 @@ static_assert_align(KernelBake, 16);
 
 typedef struct KernelData {
   uint kernel_features;
-  uint pad1, pad2, pad3;
+  uint max_closures;
+  uint max_shaders;
+  uint pad;
 
   KernelCamera cam;
   KernelFilm film;
@@ -1392,6 +1392,7 @@ typedef enum DeviceKernel {
   DEVICE_KERNEL_INTEGRATOR_COMPACT_PATHS_ARRAY,
   DEVICE_KERNEL_INTEGRATOR_COMPACT_STATES,
   DEVICE_KERNEL_INTEGRATOR_RESET,
+  DEVICE_KERNEL_INTEGRATOR_SHADOW_CATCHER_COUNT_POSSIBLE_SPLITS,
 
   DEVICE_KERNEL_SHADER_EVAL_DISPLACE,
   DEVICE_KERNEL_SHADER_EVAL_BACKGROUND,
@@ -1421,6 +1422,8 @@ typedef enum DeviceKernel {
   DEVICE_KERNEL_FILTER_GUIDING_SET_FAKE_ALBEDO,
   DEVICE_KERNEL_FILTER_COLOR_PREPROCESS,
   DEVICE_KERNEL_FILTER_COLOR_POSTPROCESS,
+
+  DEVICE_KERNEL_CRYPTOMATTE_POSTPROCESS,
 
   DEVICE_KERNEL_PREFIX_SUM,
 

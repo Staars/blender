@@ -48,6 +48,10 @@ class RenderWork {
     bool reset = false;
   } adaptive_sampling;
 
+  struct {
+    bool postprocess = false;
+  } cryptomatte;
+
   bool denoise = false;
 
   /* Display which is used to visualize render result is to be updated for the new render. */
@@ -69,6 +73,9 @@ class RenderWork {
 class RenderScheduler {
  public:
   RenderScheduler(bool headless, bool background, int pixel_size);
+
+  /* Specify whether cryptomatte-related works are to be scheduled. */
+  void set_need_schedule_cryptomatte(bool need_schedule_cryptomatte);
 
   /* Allows to disable work re-balancing works, allowing to schedule as much to a single device
    * as possible. */
@@ -147,6 +154,9 @@ class RenderScheduler {
   string full_report() const;
 
  protected:
+  /* Returns true if any work was scheduled. */
+  bool set_postprocess_render_work(RenderWork *render_work);
+
   /* Update start resolution divider based on the accumulated timing information, preserving nice
    * feeling navigation feel. */
   void update_start_resolution_divider();
@@ -290,6 +300,8 @@ class RenderScheduler {
     /* Number of rebalance works handled which did change balance across devices. */
     int num_rebalance_changes = 0;
 
+    bool need_rebalance_at_next_work = false;
+
     /* Denotes whether the latest performed rebalance work cause an actual rebalance of work across
      * devices. */
     bool last_rebalance_changed = false;
@@ -297,6 +309,9 @@ class RenderScheduler {
     /* Threshold for adaptive sampling which will be scheduled to work when not using progressive
      * noise floor. */
     float adaptive_sampling_threshold = 0.0f;
+
+    bool last_work_was_denoised = false;
+    bool postprocess_work_scheduled = false;
 
     bool path_trace_finished = false;
     bool time_limit_reached = false;
@@ -320,6 +335,9 @@ class RenderScheduler {
   TimeWithAverage denoise_time_;
   TimeWithAverage display_update_time_;
   TimeWithAverage rebalance_time_;
+
+  /* Whether cryptomatte-related work will be scheduled. */
+  bool need_schedule_cryptomatte_ = false;
 
   /* Whether to schedule device load rebalance works.
    * Rebalancing requires some special treatment for update intervals and such, so if it's known
