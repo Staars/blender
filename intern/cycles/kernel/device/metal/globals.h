@@ -36,6 +36,8 @@ struct KernelGlobals {
   IntegratorStateGPU __integrator_state;
 };
 
+// constant KernelGlobals kg;
+
 //template<typename T>
 //T kernel_tex_fetch_metal(T tex, uint index, constant const KernelGlobals *kg)
 //{
@@ -44,7 +46,7 @@ struct KernelGlobals {
 
 /* Abstraction macros */
 #define kernel_data (*kg->data)
-#define kernel_tex_array(tex) (tex)
+#define kernel_tex_array(tex) (kg->tex)
 //#define kernel_tex_fetch(tex, index) kernel_tex_fetch_metal(tex, index, &kg)
 //#define kernel_tex_fetch(tex, index) (kg->tex[(index)])
 #define kernel_tex_fetch(tex, index) (kg->tex.fetch(index))

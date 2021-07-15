@@ -64,7 +64,7 @@ ccl_device_noinline void svm_node_attr(METAL_ASQ_DEVICE const KernelGlobals *kg,
   AttributeDescriptor desc = svm_node_attr_init(kg, sd, node, &type, &out_offset);
 
 #ifdef __VOLUME__
-  if (NODES_FEATURE(VOLUME)) {
+  if (KERNEL_NODES_FEATURE(VOLUME)) {
     /* Volumes
      * NOTE: moving this into its own node type might help improve performance. */
     if (primitive_is_volume_attribute(sd, desc)) {

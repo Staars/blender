@@ -95,10 +95,6 @@ set(ADDON_FILES
 
 add_definitions(${GL_DEFINITIONS})
 
-if(WITH_CYCLES_DEVICE_OPENCL)
-  add_definitions(-DWITH_OPENCL)
-endif()
-
 if(WITH_CYCLES_DEVICE_METAL)
   add_definitions(-DWITH_METAL)
 endif()

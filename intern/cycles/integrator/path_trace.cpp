@@ -66,6 +66,8 @@ PathTrace::PathTrace(Device *device, DeviceScene *device_scene, RenderScheduler 
 
   work_balance_infos_.resize(path_trace_works_.size());
   work_balance_do_initial(work_balance_infos_);
+
+  render_scheduler.set_need_schedule_rebalance(path_trace_works_.size() > 1);
 }
 
 void PathTrace::load_kernels()
@@ -556,13 +558,14 @@ void PathTrace::rebalance(const RenderWork &render_work)
   if (VLOG_IS_ON(kLogLevel)) {
     VLOG(kLogLevel) << "Calculated per-device weights for works:";
     for (int i = 0; i < num_works; ++i) {
-      LOG(INFO) << path_trace_works_[i]->get_device()->info.description << ": "
-                << work_balance_infos_[i].weight;
+      VLOG(kLogLevel) << path_trace_works_[i]->get_device()->info.description << ": "
+                      << work_balance_infos_[i].weight;
     }
   }
 
   if (!did_rebalance) {
     VLOG(kLogLevel) << "Balance in path trace works did not change.";
+    render_scheduler_.report_rebalance_time(render_work, time_dt() - start_time, false);
     return;
   }
 
@@ -576,7 +579,7 @@ void PathTrace::rebalance(const RenderWork &render_work)
 
   copy_from_render_buffers(big_tile_cpu_buffers.buffers.get());
 
-  render_scheduler_.report_rebalance_time(render_work, time_dt() - start_time);
+  render_scheduler_.report_rebalance_time(render_work, time_dt() - start_time, true);
 }
 
 void PathTrace::cancel()
@@ -730,8 +733,6 @@ static const char *device_type_for_description(const DeviceType type)
 
     case DEVICE_CPU:
       return "CPU";
-    case DEVICE_OPENCL:
-      return "OpenCL";
     case DEVICE_CUDA:
       return "CUDA";
     case DEVICE_OPTIX:

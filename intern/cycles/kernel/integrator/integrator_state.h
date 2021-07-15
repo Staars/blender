@@ -69,7 +69,7 @@ CCL_NAMESPACE_BEGIN
  * CPU rendering path state with AoS layout. */
 typedef struct IntegratorState {
 #define KERNEL_STRUCT_BEGIN(name) struct {
-#define KERNEL_STRUCT_MEMBER(parent_struct, type, name) type name;
+#define KERNEL_STRUCT_MEMBER(parent_struct, type, name, feature) type name;
 #define KERNEL_STRUCT_ARRAY_MEMBER KERNEL_STRUCT_MEMBER
 #define KERNEL_STRUCT_END(name) \
   } \
@@ -99,10 +99,11 @@ typedef struct IntegratorQueueCounter {
 typedef struct IntegratorStateGPU {
 #define KERNEL_STRUCT_BEGIN(name) struct {
 #ifdef __KERNEL_METAL__
-#define KERNEL_STRUCT_MEMBER(parent_struct, type, name) thread type *name;
+#define KERNEL_STRUCT_MEMBER(parent_struct, type, name, feature) thread type *name;
 #else
-#define KERNEL_STRUCT_MEMBER(parent_struct, type, name) type *name;
+#define KERNEL_STRUCT_MEMBER(parent_struct, type, name, feature) type *name;
 #endif
+
 #define KERNEL_STRUCT_ARRAY_MEMBER KERNEL_STRUCT_MEMBER
 #define KERNEL_STRUCT_END(name) \
   } \
